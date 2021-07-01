@@ -6,7 +6,7 @@ enable_testing()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(CPack)
@@ -58,6 +58,8 @@ add_executable(tests ${TEST_SRC_FILES})
 target_link_libraries(tests gtest_main)
 target_include_directories(tests PUBLIC ${LIBRARY_INCLUDE_DIRECTORY})
 add_test(NAME gtests COMMAND tests)
+
+add_subdirectory(${EXAMPLE_DIRECTORY})
 
 if(MSVC)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
