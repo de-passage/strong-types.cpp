@@ -180,15 +180,12 @@ struct unary_operation_implementation;
                                          Result,                               \
                                          TransformLeft,                        \
                                          TransformRight> {                     \
-    template <class T,                                                         \
-              class U,                                                         \
-              std::enable_if_t<                                                \
-                  std::conjunction_v<std::is_same<std::decay_t<T>, Left>,      \
-                                     std::is_same<std::decay_t<U>, Right>>,    \
-                  int> = 0>                                                    \
-    friend constexpr decltype(auto) operator sym(T& left, U&& right) {         \
-      op##_t{}(TransformLeft{}(left),                                          \
-               TransformRight{}(std::forward<U>(right)));                      \
+    template <                                                                 \
+        class T,                                                               \
+        std::enable_if_t<std::is_same<std::decay_t<T>, Left>::value, int> = 0> \
+    friend constexpr decltype(auto) operator sym(T& left,                      \
+                                                 const Right& right) {         \
+      op##_t{}(TransformLeft{}(left), TransformRight{}(right));                \
       return left;                                                             \
     }                                                                          \
   };
@@ -328,7 +325,6 @@ struct for_each;
 template <class U, class... Ts>
 struct for_each<tuple<Ts...>, U> : U::template type<Ts>... {};
 
-namespace detail {
 template <class Arg1,
           class Arg2,
           class R,
@@ -338,31 +334,37 @@ struct make_commutative_operator {
   template <class Op>
   using type = commutative_operator_implementation<Op, Arg1, Arg2, R, T1, T2>;
 };
-template <class Arg, class R>
+template <class Arg, class R, class T = get_value_t>
 struct make_reflexive_operator {
   template <class Op>
-  using type = reflexive_operator_implementation<Op, Arg, R>;
+  using type = reflexive_operator_implementation<Op, Arg, R, T>;
 };
 template <class Arg, class R, class T>
 struct make_unary_operator {
   template <class Op>
   using type = unary_operation_implementation<Op, Arg, R, T>;
 };
-}  // namespace detail
+template <class Left,
+          class Right,
+          class R,
+          class TL = get_value_t,
+          class TR = get_value_t>
+struct make_binary_operator {
+  template <class Op>
+  using type = binary_operation_implementation<Op, Left, Right, R, TL, TR>;
+};
 
 struct comparable {
   template <class Arg>
   struct type : for_each<comparison_operators,
-                         detail::make_reflexive_operator<Arg, passthrough_t>> {
-  };
+                         make_reflexive_operator<Arg, passthrough_t>> {};
 };
 
 template <class Arg2>
 struct comparable_with {
   template <class Arg1>
-  struct type
-      : for_each<comparison_operators,
-                 detail::make_commutative_operator<Arg1, Arg2, passthrough_t>> {
+  struct type : for_each<comparison_operators,
+                         make_commutative_operator<Arg1, Arg2, passthrough_t>> {
   };
 };
 
@@ -370,10 +372,9 @@ struct arithmetic {
   template <class Arg>
   struct type
       : for_each<binary_arithmetic_operators,
-                 detail::make_reflexive_operator<Arg, construct_t<Arg>>>,
-        for_each<
-            unary_arithmetic_operators,
-            detail::make_unary_operator<Arg, construct_t<Arg>, get_value_t>> {};
+                 make_reflexive_operator<Arg, construct_t<Arg>>>,
+        for_each<unary_arithmetic_operators,
+                 make_unary_operator<Arg, construct_t<Arg>, get_value_t>> {};
 };
 
 namespace detail {
@@ -388,7 +389,7 @@ struct arithmetically_compatible_with {
   template <class Arg1>
   struct type
       : for_each<binary_arithmetic_operators,
-                 detail::make_commutative_operator<
+                 make_commutative_operator<
                      Arg1,
                      Arg2,
                      std::conditional_t<std::is_same_v<detail::deduce, R>,
@@ -408,8 +409,58 @@ struct commutative_under {
   using type = commutative_operator_implementation<Op, Arg1, Arg2, R, T1, T2>;
 };
 
+template <class Op,
+          class Arg2,
+          class R,
+          class T1 = get_value_t,
+          class T2 = get_value_t>
+struct compatible_under {
+  template <class Arg1>
+  using type = binary_operation_implementation<Op, Arg1, Arg2, R, T1, T2>;
+};
+
 template <class T, class... Ts>
 struct derive_t : Ts::template type<T>... {};
+
+template <class Type, class Tag, class... Params>
+struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
+  using value_type = Type;
+
+  template <
+      class U,
+      std::enable_if_t<std::is_convertible<std::decay_t<U>, value_type>::value,
+                       int> = 0>
+  constexpr explicit strong_value(U&& u) noexcept : value{std::forward<U>(u)} {}
+
+  constexpr strong_value() noexcept : value{} {}
+
+  value_type value;
+};
+
+template <class Type, class Tag, class... Params>
+struct strong_literal : derive_t<strong_literal<Type, Tag, Params...>,
+                                 arithmetic,
+                                 comparable,
+                                 arithmetically_compatible_with<Type>,
+                                 comparable_with<Type>,
+                                 Params...> {
+  using value_type = Type;
+
+  static_assert(
+      std::is_literal_type<value_type>::value,
+      "strong_literal expects a literal as base (first template parameter)");
+
+  constexpr strong_literal() noexcept = default;
+
+  template <
+      class U,
+      std::enable_if_t<std::is_constructible_v<value_type, std::decay_t<U>>,
+                       int> = 0>
+  constexpr explicit strong_literal(U&& u) noexcept
+      : value{std::forward<U>(u)} {}
+
+  value_type value;
+};
 
 }  // namespace strong_types
 }  // namespace dpsg
