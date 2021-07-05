@@ -271,9 +271,10 @@ struct commutative_operator_implementation
                                       TransformRight,
                                       TransformLeft> {};
 
+namespace black_magic {
 template <class... Ts>
 struct tuple;
-namespace detail {
+
 template <class T1, class T2>
 struct concat_tuples;
 template <class... T1s, class... T2s>
@@ -282,55 +283,66 @@ struct concat_tuples<tuple<T1s...>, tuple<T2s...>> {
 };
 template <class T1, class T2>
 using concat_tuples_t = typename concat_tuples<T1, T2>::type;
-}  // namespace detail
-
-using comparison_operators = tuple<equal_t,
-                                   not_equal_t,
-                                   lesser_equal_t,
-                                   greater_equal_t,
-                                   lesser_t,
-                                   greater_t>;
-
-using unary_boolean_operators = tuple<boolean_not_t>;
-using binary_boolean_operators = tuple<boolean_and_t, boolean_or_t>;
-using boolean_operators =
-    detail::concat_tuples_t<unary_boolean_operators, binary_boolean_operators>;
-
-using unary_bitwise_operators = tuple<binary_not_t>;
-using binary_bitwise_operators = tuple<binary_and_t,
-                                       binary_or_t,
-                                       binary_xor_t,
-                                       shift_left_t,
-                                       shift_right_t,
-                                       shift_left_assign_t,
-                                       shift_right_assign_t>;
-using bitwise_operators =
-    detail::concat_tuples_t<unary_boolean_operators, binary_boolean_operators>;
-
-using unary_arithmetic_operators = tuple<negate_t,
-                                         positivate_t,
-                                         increment_t,
-                                         decrement_t,
-                                         post_increment_t,
-                                         post_decrement_t>;
-using binary_arithmetic_operators = tuple<plus_t,
-                                          minus_t,
-                                          multiplies_t,
-                                          divides_t,
-                                          modulo_t,
-                                          plus_assign_t,
-                                          minus_assign_t,
-                                          multiplies_assign_t,
-                                          divides_assign_t,
-                                          modulo_assign_t>;
-using arithmetic_operators =
-    detail::concat_tuples_t<unary_arithmetic_operators,
-                            binary_arithmetic_operators>;
 
 template <class T, class U>
 struct for_each;
 template <class U, class... Ts>
 struct for_each<tuple<Ts...>, U> : U::template type<Ts>... {};
+
+template <template <class...> class S, class... Ts>
+struct apply {
+  template <class Tuple>
+  struct type;
+  template <template <class...> class Tuple, class Op, class Target>
+  struct type<Tuple<Op, Target>> : S<Op, Target, Ts...> {};
+};
+}  // namespace black_magic
+
+using comparison_operators = black_magic::tuple<equal_t,
+                                                not_equal_t,
+                                                lesser_equal_t,
+                                                greater_equal_t,
+                                                lesser_t,
+                                                greater_t>;
+
+using unary_boolean_operators = black_magic::tuple<boolean_not_t>;
+using binary_boolean_operators =
+    black_magic::tuple<boolean_and_t, boolean_or_t>;
+using boolean_operators =
+    black_magic::concat_tuples_t<unary_boolean_operators,
+                                 binary_boolean_operators>;
+
+using unary_bitwise_operators = black_magic::tuple<binary_not_t>;
+using binary_bitwise_operators = black_magic::tuple<binary_and_t,
+                                                    binary_or_t,
+                                                    binary_xor_t,
+                                                    shift_left_t,
+                                                    shift_right_t,
+                                                    shift_left_assign_t,
+                                                    shift_right_assign_t>;
+using bitwise_operators =
+    black_magic::concat_tuples_t<unary_boolean_operators,
+                                 binary_boolean_operators>;
+
+using unary_arithmetic_operators = black_magic::tuple<negate_t,
+                                                      positivate_t,
+                                                      increment_t,
+                                                      decrement_t,
+                                                      post_increment_t,
+                                                      post_decrement_t>;
+using binary_arithmetic_operators = black_magic::tuple<plus_t,
+                                                       minus_t,
+                                                       multiplies_t,
+                                                       divides_t,
+                                                       modulo_t,
+                                                       plus_assign_t,
+                                                       minus_assign_t,
+                                                       multiplies_assign_t,
+                                                       divides_assign_t,
+                                                       modulo_assign_t>;
+using arithmetic_operators =
+    black_magic::concat_tuples_t<unary_arithmetic_operators,
+                                 binary_arithmetic_operators>;
 
 template <class Arg1,
           class Arg2,
@@ -363,25 +375,27 @@ struct make_binary_operator {
 
 struct comparable {
   template <class Arg>
-  struct type : for_each<comparison_operators,
-                         make_reflexive_operator<Arg, passthrough_t>> {};
+  struct type
+      : black_magic::for_each<comparison_operators,
+                              make_reflexive_operator<Arg, passthrough_t>> {};
 };
 
 template <class Arg2>
 struct comparable_with {
   template <class Arg1>
-  struct type : for_each<comparison_operators,
-                         make_commutative_operator<Arg1, Arg2, passthrough_t>> {
-  };
+  struct type : black_magic::for_each<
+                    comparison_operators,
+                    make_commutative_operator<Arg1, Arg2, passthrough_t>> {};
 };
 
 struct arithmetic {
   template <class Arg>
   struct type
-      : for_each<binary_arithmetic_operators,
-                 make_reflexive_operator<Arg, construct_t<Arg>>>,
-        for_each<unary_arithmetic_operators,
-                 make_unary_operator<Arg, construct_t<Arg>, get_value_t>> {};
+      : black_magic::for_each<binary_arithmetic_operators,
+                              make_reflexive_operator<Arg, construct_t<Arg>>>,
+        black_magic::for_each<
+            unary_arithmetic_operators,
+            make_unary_operator<Arg, construct_t<Arg>, get_value_t>> {};
 };
 
 namespace detail {
@@ -394,16 +408,16 @@ template <class Arg2,
           class T2 = get_value_t>
 struct arithmetically_compatible_with {
   template <class Arg1>
-  struct type
-      : for_each<binary_arithmetic_operators,
-                 make_commutative_operator<
-                     Arg1,
-                     Arg2,
-                     std::conditional_t<std::is_same_v<detail::deduce, R>,
-                                        construct_t<Arg1>,
-                                        R>,
-                     T1,
-                     T2>> {};
+  struct type : black_magic::for_each<
+                    binary_arithmetic_operators,
+                    make_commutative_operator<
+                        Arg1,
+                        Arg2,
+                        std::conditional_t<std::is_same_v<detail::deduce, R>,
+                                           construct_t<Arg1>,
+                                           R>,
+                        T1,
+                        T2>> {};
 };
 
 template <class Op,

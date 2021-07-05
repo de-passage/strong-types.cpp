@@ -5,23 +5,16 @@
 namespace st = dpsg::strong_types;
 
 namespace custom_modifier {
+namespace meta = st::black_magic;
 // Allows streaming to/from std::basic_[io]stream
 struct streamable {
-  // Dark arts, remember?
-  template <template <class...> class S, class... Ts>
-  struct _apply {
-    template <class Tuple>
-    struct type;
-    template <template <class...> class Tuple, class Op, class Target>
-    struct type<Tuple<Op, Target>> : S<Op, Target, Ts...> {};
-  };
-
   template <class T>
   struct type
-      : st::for_each<
-            st::tuple<st::tuple<st::shift_left_t, std::basic_istream<char>>,
-                      st::tuple<st::shift_right_t, std::basic_ostream<char>>>,
-            _apply<st::binary_operation_implementation, T>> {};
+      : meta::for_each<
+            meta::tuple<
+                meta::tuple<st::shift_left_t, std::basic_istream<char>>,
+                meta::tuple<st::shift_right_t, std::basic_ostream<char>>>,
+            meta::apply<st::binary_operation_implementation, T>> {};
 };
 }  // namespace custom_modifier
 
@@ -60,7 +53,7 @@ int main(int argc, char** argv) {
 
   newton::force force;
   newton::mass mass;
-  format >> force.value >> mass.value;
+  format >> force >> mass;
 
   if (mass == 0) {
     mass += 1;
@@ -74,7 +67,7 @@ int main(int argc, char** argv) {
   else {
     format << argv[3];
     newton::time time;
-    format >> time.value;
+    format >> time;
 
     newton::speed speed = force / mass * time;
 
