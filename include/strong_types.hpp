@@ -9,17 +9,10 @@ namespace strong_types {
 // clang-tidy off
 #define DPSG_DEFINE_BINARY_OPERATOR(name, sym)                             \
   struct name##_t {                                                        \
-    template <class T,                                                     \
-              class U,                                                     \
-              std::enable_if_t<!std::is_lvalue_reference_v<T>, int> = 0>   \
+    template <class T, class U>                                            \
     constexpr inline decltype(auto) operator()(T&& left,                   \
                                                U&& right) const noexcept { \
       return std::forward<T>(left) sym std::forward<U>(right);             \
-    }                                                                      \
-    template <class T, class U>                                            \
-    constexpr inline decltype(auto) operator()(T& left,                    \
-                                               U&& right) const noexcept { \
-      return left sym std::forward<U>(right);                              \
     }                                                                      \
   };
 
@@ -149,23 +142,37 @@ template <class Op,
           class Transform = get_value_t>
 struct unary_operation_implementation;
 
-#define DPSG_DEFINE_FRIEND_BINARY_OPERATOR_IMPLEMENTATION(op, sym)     \
-  template <class Left,                                                \
-            class Right,                                               \
-            class Result,                                              \
-            class TransformLeft,                                       \
-            class TransformRight>                                      \
-  struct binary_operation_implementation<op##_t,                       \
-                                         Left,                         \
-                                         Right,                        \
-                                         Result,                       \
-                                         TransformLeft,                \
-                                         TransformRight> {             \
-    friend constexpr decltype(auto) operator sym(const Left& left,     \
-                                                 const Right& right) { \
-      return Result{}(                                                 \
-          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));   \
-    }                                                                  \
+#define DPSG_DEFINE_FRIEND_BINARY_OPERATOR_IMPLEMENTATION(op, sym)           \
+  template <class Left,                                                      \
+            class Right,                                                     \
+            class Result,                                                    \
+            class TransformLeft,                                             \
+            class TransformRight>                                            \
+  struct binary_operation_implementation<op##_t,                             \
+                                         Left,                               \
+                                         Right,                              \
+                                         Result,                             \
+                                         TransformLeft,                      \
+                                         TransformRight> {                   \
+    friend constexpr decltype(auto) operator sym(const Left& left,           \
+                                                 const Right& right) {       \
+      return Result{}(                                                       \
+          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+    }                                                                        \
+    friend constexpr decltype(auto) operator sym(Left& left,                 \
+                                                 const Right& right) {       \
+      return Result{}(                                                       \
+          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+    }                                                                        \
+    friend constexpr decltype(auto) operator sym(const Left& left,           \
+                                                 Right& right) {             \
+      return Result{}(                                                       \
+          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+    }                                                                        \
+    friend constexpr decltype(auto) operator sym(Left& left, Right& right) { \
+      return Result{}(                                                       \
+          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+    }                                                                        \
   };
 
 #define DPSG_DEFINE_FRIEND_SELF_ASSIGN_BINARY_OPERATOR_IMPLEMENTATION(op, sym) \
