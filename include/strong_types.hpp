@@ -8,7 +8,7 @@ namespace strong_types {
 
 // clang-tidy off
 #define DPSG_DEFINE_BINARY_OPERATOR(name, sym)                             \
-  struct name##_t {                                                        \
+  struct name {                                                            \
     template <class T, class U>                                            \
     constexpr inline decltype(auto) operator()(T&& left,                   \
                                                U&& right) const noexcept { \
@@ -17,7 +17,7 @@ namespace strong_types {
   };
 
 #define DPSG_DEFINE_UNARY_OPERATOR(name, sym)                          \
-  struct name##_t {                                                    \
+  struct name {                                                        \
     template <class U>                                                 \
     constexpr inline decltype(auto) operator()(U&& u) const noexcept { \
       return sym std::forward<U>(u);                                   \
@@ -46,14 +46,14 @@ DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
 DPSG_APPLY_TO_UNARY_OPERATORS(DPSG_DEFINE_UNARY_OPERATOR)
 // clang-tidy on
 
-struct post_increment_t {
+struct post_increment {
   template <class U>
   constexpr inline decltype(auto) operator()(U& u) const noexcept {
     return u++;
   }
 };
 
-struct post_decrement_t {
+struct post_decrement {
   template <class U>
   constexpr inline decltype(auto) operator()(U& u) const noexcept {
     return u--;
@@ -134,13 +134,13 @@ template <class Op,
           class Result = passthrough_t,
           class TransformLeft = get_value_t,
           class TransformRight = get_value_t>
-struct binary_operation_implementation;
+struct implement_binary_operation;
 
 template <class Op,
           class Arg,
           class Result = passthrough_t,
           class Transform = get_value_t>
-struct unary_operation_implementation;
+struct implement_unary_operation;
 
 #define DPSG_DEFINE_FRIEND_BINARY_OPERATOR_IMPLEMENTATION(op, sym)           \
   template <class Left,                                                      \
@@ -148,30 +148,26 @@ struct unary_operation_implementation;
             class Result,                                                    \
             class TransformLeft,                                             \
             class TransformRight>                                            \
-  struct binary_operation_implementation<op##_t,                             \
-                                         Left,                               \
-                                         Right,                              \
-                                         Result,                             \
-                                         TransformLeft,                      \
-                                         TransformRight> {                   \
+  struct implement_binary_operation<op,                                      \
+                                    Left,                                    \
+                                    Right,                                   \
+                                    Result,                                  \
+                                    TransformLeft,                           \
+                                    TransformRight> {                        \
     friend constexpr decltype(auto) operator sym(const Left& left,           \
                                                  const Right& right) {       \
-      return Result{}(                                                       \
-          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
     }                                                                        \
     friend constexpr decltype(auto) operator sym(Left& left,                 \
                                                  const Right& right) {       \
-      return Result{}(                                                       \
-          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
     }                                                                        \
     friend constexpr decltype(auto) operator sym(const Left& left,           \
                                                  Right& right) {             \
-      return Result{}(                                                       \
-          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
     }                                                                        \
     friend constexpr decltype(auto) operator sym(Left& left, Right& right) { \
-      return Result{}(                                                       \
-          op##_t{}(TransformLeft{}(left), TransformRight{}(right)));         \
+      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
     }                                                                        \
   };
 
@@ -181,54 +177,54 @@ struct unary_operation_implementation;
             class Result,                                                      \
             class TransformLeft,                                               \
             class TransformRight>                                              \
-  struct binary_operation_implementation<op##_t,                               \
-                                         Left,                                 \
-                                         Right,                                \
-                                         Result,                               \
-                                         TransformLeft,                        \
-                                         TransformRight> {                     \
+  struct implement_binary_operation<op,                                        \
+                                    Left,                                      \
+                                    Right,                                     \
+                                    Result,                                    \
+                                    TransformLeft,                             \
+                                    TransformRight> {                          \
     template <                                                                 \
         class T,                                                               \
         std::enable_if_t<std::is_same<std::decay_t<T>, Left>::value, int> = 0> \
     friend constexpr decltype(auto) operator sym(T& left,                      \
                                                  const Right& right) {         \
-      op##_t{}(TransformLeft{}(left), TransformRight{}(right));                \
+      op{}(TransformLeft{}(left), TransformRight{}(right));                    \
       return left;                                                             \
     }                                                                          \
   };
 
 #define DPSG_DEFINE_FRIEND_UNARY_OPERATOR_IMPLEMENTATION(op, sym)         \
   template <class Arg, class Result, class Transform>                     \
-  struct unary_operation_implementation<op##_t, Arg, Result, Transform> { \
+  struct implement_unary_operation<op, Arg, Result, Transform> {          \
     template <class T,                                                    \
               std::enable_if_t<                                           \
                   std::conjunction_v<std::is_same<std::decay_t<T>, Arg>>, \
                   int> = 0>                                               \
     friend constexpr decltype(auto) operator sym(T&& arg) {               \
-      return Result{}(op##_t{}(Transform{}(std::forward<T>(arg))));       \
+      return Result{}(op{}(Transform{}(std::forward<T>(arg))));           \
     }                                                                     \
   };
 
 template <class L, class R, class TL>
-struct unary_operation_implementation<post_increment_t, L, R, TL> {
+struct implement_unary_operation<post_increment, L, R, TL> {
   template <
       class T,
       std::enable_if_t<std::conjunction_v<std::is_same<std::decay_t<T>, L>>,
                        int> = 0>
   friend constexpr decltype(auto) operator++(T& left, int) {
-    post_increment_t{}(TL{}(left));
+    post_increment{}(TL{}(left));
     return left;
   }
 };
 
 template <class L, class R, class TL>
-struct unary_operation_implementation<post_decrement_t, L, R, TL> {
+struct implement_unary_operation<post_decrement, L, R, TL> {
   template <
       class T,
       std::enable_if_t<std::conjunction_v<std::is_same<std::decay_t<T>, L>>,
                        int> = 0>
   friend constexpr decltype(auto) operator--(T& left, int) {
-    post_decrement_t{}(TL{}(left));
+    post_decrement{}(TL{}(left));
     return left;
   }
 };
@@ -244,12 +240,12 @@ template <class Operation,
           class Result,
           class Transform = get_value_t>
 struct reflexive_operator_implementation
-    : binary_operation_implementation<Operation,
-                                      Arg,
-                                      Arg,
-                                      Result,
-                                      Transform,
-                                      Transform> {};
+    : implement_binary_operation<Operation,
+                                 Arg,
+                                 Arg,
+                                 Result,
+                                 Transform,
+                                 Transform> {};
 
 template <class Operation,
           class Left,
@@ -258,18 +254,18 @@ template <class Operation,
           class TransformLeft = get_value_t,
           class TransformRight = get_value_t>
 struct commutative_operator_implementation
-    : binary_operation_implementation<Operation,
-                                      Left,
-                                      Right,
-                                      Return,
-                                      TransformLeft,
-                                      TransformRight>,
-      binary_operation_implementation<Operation,
-                                      Right,
-                                      Left,
-                                      Return,
-                                      TransformRight,
-                                      TransformLeft> {};
+    : implement_binary_operation<Operation,
+                                 Left,
+                                 Right,
+                                 Return,
+                                 TransformLeft,
+                                 TransformRight>,
+      implement_binary_operation<Operation,
+                                 Right,
+                                 Left,
+                                 Return,
+                                 TransformRight,
+                                 TransformLeft> {};
 
 namespace black_magic {
 template <class... Ts>
@@ -298,48 +294,43 @@ struct apply {
 };
 }  // namespace black_magic
 
-using comparison_operators = black_magic::tuple<equal_t,
-                                                not_equal_t,
-                                                lesser_equal_t,
-                                                greater_equal_t,
-                                                lesser_t,
-                                                greater_t>;
+using comparison_operators = black_magic::
+    tuple<equal, not_equal, lesser_equal, greater_equal, lesser, greater>;
 
-using unary_boolean_operators = black_magic::tuple<boolean_not_t>;
-using binary_boolean_operators =
-    black_magic::tuple<boolean_and_t, boolean_or_t>;
+using unary_boolean_operators = black_magic::tuple<boolean_not>;
+using binary_boolean_operators = black_magic::tuple<boolean_and, boolean_or>;
 using boolean_operators =
     black_magic::concat_tuples_t<unary_boolean_operators,
                                  binary_boolean_operators>;
 
-using unary_bitwise_operators = black_magic::tuple<binary_not_t>;
-using binary_bitwise_operators = black_magic::tuple<binary_and_t,
-                                                    binary_or_t,
-                                                    binary_xor_t,
-                                                    shift_left_t,
-                                                    shift_right_t,
-                                                    shift_left_assign_t,
-                                                    shift_right_assign_t>;
+using unary_bitwise_operators = black_magic::tuple<binary_not>;
+using binary_bitwise_operators = black_magic::tuple<binary_and,
+                                                    binary_or,
+                                                    binary_xor,
+                                                    shift_left,
+                                                    shift_right,
+                                                    shift_left_assign,
+                                                    shift_right_assign>;
 using bitwise_operators =
-    black_magic::concat_tuples_t<unary_boolean_operators,
-                                 binary_boolean_operators>;
+    black_magic::concat_tuples_t<unary_bitwise_operators,
+                                 binary_bitwise_operators>;
 
-using unary_arithmetic_operators = black_magic::tuple<negate_t,
-                                                      positivate_t,
-                                                      increment_t,
-                                                      decrement_t,
-                                                      post_increment_t,
-                                                      post_decrement_t>;
-using binary_arithmetic_operators = black_magic::tuple<plus_t,
-                                                       minus_t,
-                                                       multiplies_t,
-                                                       divides_t,
-                                                       modulo_t,
-                                                       plus_assign_t,
-                                                       minus_assign_t,
-                                                       multiplies_assign_t,
-                                                       divides_assign_t,
-                                                       modulo_assign_t>;
+using unary_arithmetic_operators = black_magic::tuple<negate,
+                                                      positivate,
+                                                      increment,
+                                                      decrement,
+                                                      post_increment,
+                                                      post_decrement>;
+using binary_arithmetic_operators = black_magic::tuple<plus,
+                                                       minus,
+                                                       multiplies,
+                                                       divides,
+                                                       modulo,
+                                                       plus_assign,
+                                                       minus_assign,
+                                                       multiplies_assign,
+                                                       divides_assign,
+                                                       modulo_assign>;
 using arithmetic_operators =
     black_magic::concat_tuples_t<unary_arithmetic_operators,
                                  binary_arithmetic_operators>;
@@ -361,7 +352,7 @@ struct make_reflexive_operator {
 template <class Arg, class R, class T>
 struct make_unary_operator {
   template <class Op>
-  using type = unary_operation_implementation<Op, Arg, R, T>;
+  using type = implement_unary_operation<Op, Arg, R, T>;
 };
 template <class Left,
           class Right,
@@ -370,7 +361,7 @@ template <class Left,
           class TR = get_value_t>
 struct make_binary_operator {
   template <class Op>
-  using type = binary_operation_implementation<Op, Left, Right, R, TL, TR>;
+  using type = implement_binary_operation<Op, Left, Right, R, TL, TR>;
 };
 
 struct comparable {
@@ -437,7 +428,7 @@ template <class Op,
           class T2 = get_value_t>
 struct compatible_under {
   template <class Arg1>
-  using type = binary_operation_implementation<Op, Arg1, Arg2, R, T1, T2>;
+  using type = implement_binary_operation<Op, Arg1, Arg2, R, T1, T2>;
 };
 
 template <class T, class... Ts>
@@ -459,26 +450,24 @@ struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
 };
 
 template <class Type, class Tag, class... Params>
-struct strong_literal : derive_t<strong_literal<Type, Tag, Params...>,
-                                 arithmetic,
-                                 comparable,
-                                 arithmetically_compatible_with<Type>,
-                                 comparable_with<Type>,
-                                 Params...> {
+struct number : derive_t<number<Type, Tag, Params...>,
+                         arithmetic,
+                         comparable,
+                         arithmetically_compatible_with<Type>,
+                         comparable_with<Type>,
+                         Params...> {
   using value_type = Type;
 
-  static_assert(
-      std::is_literal_type<value_type>::value,
-      "strong_literal expects a literal as base (first template parameter)");
+  static_assert(std::is_arithmetic<value_type>::value,
+                "number expects a literal as base (first template parameter)");
 
-  constexpr strong_literal() noexcept = default;
+  constexpr number() noexcept = default;
 
-  template <
-      class U,
-      std::enable_if_t<std::is_constructible_v<value_type, std::decay_t<U>>,
-                       int> = 0>
-  constexpr explicit strong_literal(U&& u) noexcept
-      : value{std::forward<U>(u)} {}
+  template <class U,
+            std::enable_if_t<
+                std::is_constructible<value_type, std::decay_t<U>>::value,
+                int> = 0>
+  constexpr explicit number(U&& u) noexcept : value{std::forward<U>(u)} {}
 
   value_type value;
 };
