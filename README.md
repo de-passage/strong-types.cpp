@@ -1,4 +1,5 @@
 This is the result of my life-long (OK, maybe just-a-couple-years-long) quest for the ultimate strong type engine for C++. Other solutions do exist but I haven't found anything that satisfies the level of granularity that I want for my strong type declarations.
+Compiled and tested with clang 11.0 and g++ 6.4 with flag -std=c++14.
 
 # Strong types
 
@@ -119,8 +120,9 @@ int main(int argc, char** argv) {
     format >> time;
 
     newton::speed speed = force / mass * time;
-    [[maybe_unused]] newton::speed speed2 =
-        time * (force / mass);  // both forms work
+    newton::speed speed2 = time * (force / mass);  // both forms work
+    speed2 += speed;  // just in case it wasn't clear already, strong numbers
+                      // are compatible with other numbers with the same tag
 
     // however, this will fail because it is parsed as (t*f)/m
     // newton::speed speed = time * force / mass;

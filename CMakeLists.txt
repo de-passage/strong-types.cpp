@@ -54,14 +54,19 @@ set (TEST_SRC_FILES
 
 list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
 
+function(set_target_options TARGET)
+if(MSVC)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
+  target_compile_options(${TARGET} PRIVATE /W3 /WX)
+else()
+  target_compile_options(${TARGET} PRIVATE -pedantic -Wall -Wextra)
+endif(MSVC)
+endfunction()
+
 add_executable(tests ${TEST_SRC_FILES})
 target_link_libraries(tests gtest_main)
 target_include_directories(tests PUBLIC ${LIBRARY_INCLUDE_DIRECTORY})
+set_target_options(tests)
 add_test(NAME gtests COMMAND tests)
 
 add_subdirectory(${EXAMPLE_DIRECTORY})
-
-if(MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
-  target_compile_options(tests PRIVATE /W3 /WX)
-endif(MSVC)

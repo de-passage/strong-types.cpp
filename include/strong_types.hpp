@@ -193,24 +193,21 @@ struct implement_unary_operation;
     }                                                                          \
   };
 
-#define DPSG_DEFINE_FRIEND_UNARY_OPERATOR_IMPLEMENTATION(op, sym)         \
-  template <class Arg, class Result, class Transform>                     \
-  struct implement_unary_operation<op, Arg, Result, Transform> {          \
-    template <class T,                                                    \
-              std::enable_if_t<                                           \
-                  std::conjunction_v<std::is_same<std::decay_t<T>, Arg>>, \
-                  int> = 0>                                               \
-    friend constexpr decltype(auto) operator sym(T&& arg) {               \
-      return Result{}(op{}(Transform{}(std::forward<T>(arg))));           \
-    }                                                                     \
+#define DPSG_DEFINE_FRIEND_UNARY_OPERATOR_IMPLEMENTATION(op, sym)             \
+  template <class Arg, class Result, class Transform>                         \
+  struct implement_unary_operation<op, Arg, Result, Transform> {              \
+    template <                                                                \
+        class T,                                                              \
+        std::enable_if_t<std::is_same<std::decay_t<T>, Arg>::value, int> = 0> \
+    friend constexpr decltype(auto) operator sym(T&& arg) {                   \
+      return Result{}(op{}(Transform{}(std::forward<T>(arg))));               \
+    }                                                                         \
   };
 
 template <class L, class R, class TL>
 struct implement_unary_operation<post_increment, L, R, TL> {
-  template <
-      class T,
-      std::enable_if_t<std::conjunction_v<std::is_same<std::decay_t<T>, L>>,
-                       int> = 0>
+  template <class T,
+            std::enable_if_t<std::is_same<std::decay_t<T>, L>::value, int> = 0>
   friend constexpr decltype(auto) operator++(T& left, int) {
     post_increment{}(TL{}(left));
     return left;
@@ -219,10 +216,8 @@ struct implement_unary_operation<post_increment, L, R, TL> {
 
 template <class L, class R, class TL>
 struct implement_unary_operation<post_decrement, L, R, TL> {
-  template <
-      class T,
-      std::enable_if_t<std::conjunction_v<std::is_same<std::decay_t<T>, L>>,
-                       int> = 0>
+  template <class T,
+            std::enable_if_t<std::is_same<std::decay_t<T>, L>::value, int> = 0>
   friend constexpr decltype(auto) operator--(T& left, int) {
     post_decrement{}(TL{}(left));
     return left;
