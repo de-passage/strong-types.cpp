@@ -239,13 +239,12 @@ template <class Operation,
           class Arg,
           class Result,
           class Transform = get_value_t>
-struct reflexive_operator_implementation
-    : implement_binary_operation<Operation,
-                                 Arg,
-                                 Arg,
-                                 Result,
-                                 Transform,
-                                 Transform> {};
+struct implement_reflexive_operation : implement_binary_operation<Operation,
+                                                                  Arg,
+                                                                  Arg,
+                                                                  Result,
+                                                                  Transform,
+                                                                  Transform> {};
 
 template <class Operation,
           class Left,
@@ -347,7 +346,7 @@ struct make_commutative_operator {
 template <class Arg, class R, class T = get_value_t>
 struct make_reflexive_operator {
   template <class Op>
-  using type = reflexive_operator_implementation<Op, Arg, R, T>;
+  using type = implement_reflexive_operation<Op, Arg, R, T>;
 };
 template <class Arg, class R, class T>
 struct make_unary_operator {

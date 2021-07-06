@@ -4,7 +4,9 @@ This is the result of my life-long (OK, maybe just-a-couple-years-long) quest fo
 
 What are strong types you say? Well, let's start from an example you've probably seen before: 
 ``` cpp
-<complete stupid example with repeating types in function prototype here>
+double compute_speed(double force, double mass, double time);
+
+double acceleration = compute_speed(time, force, mass);
 ```
 Now if you don't see what's wrong with the code above, this repo isn't for you. If, however, you enjoy robust code that can be modified and reused with confidence, the solution you're yearning for is *strong types*, the ability to produce a type that shares some or all of the characteristics of another, without being freely substitutable with the latter.
 In other words, you'd like the following code to fail to compile:
@@ -26,14 +28,148 @@ Some day, we might get a nice standard solution to do that, but for now we have 
 2. try to implement manually wrapper types everytime you need one before giving up and going back to option 1
 3. write a template type that wraps any numeric type, some other common types and call it a day. That's not a bad solution, and there's a few options doing just that available online. It just doesn't quite satisfy my strong type OCD. I want to be able to define more precisely what different types can and cannot do.
 4. implement some sort of code generator that you feed with some sort of meta-language in return for your C++ boilerplate. Again something I wouldn't consider unless your project is big enough with all the tooling necessary to support an extra step in your development process.
-5. sacrifice your soul to the Great Old C++ Ones and acquire the forbidden knowledge of template metaprogramming, then proceed to summon with dark magic a meta-beast that will your bidding from within the code itself. This is the solution I chose here. It's always the solution I choose...
+5. ditch C++ for some fancy functional language with great support for strong types. Boring.
+6. sacrifice your soul to the Great Old C++ Ones and acquire the forbidden knowledge of template metaprogramming, then proceed to summon with dark magic a meta-beast that will your bidding from within the code itself. This is the solution I chose here. It's always the solution I choose...
 
-# Basic usage
+# Getting Started
 
+This example is a bit long but showcases basically all the functionalities of the library, take the time to read it through.
 ``` cpp
+#include <iostream>
+#include <sstream>
 #include <strong_types.hpp>
 
 namespace st = dpsg::strong_types;
 
-// complete the example
+// Allows streaming to/from std::basic_[io]stream
+namespace custom_modifier {
+namespace meta = st::black_magic;
+struct streamable {
+  template <class T>
+  struct type
+      : meta::for_each<
+            meta::tuple<meta::tuple<st::shift_left, std::basic_istream<char>>,
+                        meta::tuple<st::shift_right, std::basic_ostream<char>>>,
+            meta::apply<st::implement_binary_operation, T>> {};
+};
+}  // namespace custom_modifier
+
+namespace newton {
+using acceleration =
+    st::number<double, struct acceleration_tag>;  // most basic form
+using mass = st::number<unsigned int,
+                        struct mass_tag,
+                        custom_modifier::streamable>;  // additionnal modifier.
+using force =
+    st::number<unsigned int,
+               struct force_tag,
+               // compatible under division with mass to produce acceleration
+               st::compatible_under<st::divides,
+                                    mass,
+                                    st::construct_t<acceleration>,
+                                    st::get_value_then_cast_t<double>,
+                                    st::get_value_then_cast_t<double>>,
+               custom_modifier::streamable>;
+using speed = st::number<double, struct speed_tag, custom_modifier::streamable>;
+using time = st::number<
+    int,
+    struct time_tag,
+    // compatible with acceleration under multiplication to produce speed.
+    // Additionally multiplication is commutative, i.e. t*a=a*t
+    st::commutative_under<st::multiplies, acceleration, st::construct_t<speed>>,
+    custom_modifier::streamable>;
+}  // namespace newton
+
+int main(int argc, char** argv) {
+  if (argc < 3) {
+    std::cerr << "usage: basic-example <MASS> <FORCE> [<SPEED>]" << std::endl;
+    return 1;
+  }
+
+  std::stringstream format;
+  format << argv[1] << ' ' << argv[2] << ' ';
+
+  newton::force force;
+  newton::mass mass;
+  format >> force >>
+      mass;  // thanks to our custom modifier, our types are streamable
+
+  // we can of course compare and do arithmetics with integers.
+  if (mass == 0) {
+    // Try turning on -Wconversion and replacing '1' with '-1', you'll get a
+    // proper warning telling you that your int is implicitely converted to
+    // unsigned int
+    mass += 1;
+  }
+
+  if (argc <= 3) {
+    newton::acceleration acceleration = force / mass;  // f/m=a, as expected
+
+    // this would cause a compilation failure: invalid operands to binary
+    // operation auto wut = mass / force;
+
+    std::cout << "force(" << force << ") / mass(" << mass
+              << ") = acceleration("
+              // the underlying value is always available this way
+              << acceleration.value << ")" << std::endl;
+  }
+  else {
+    format << argv[3];
+    newton::time time;
+    format >> time;
+
+    newton::speed speed = force / mass * time;
+    [[maybe_unused]] newton::speed speed2 =
+        time * (force / mass);  // both forms work
+
+    // however, this will fail because it is parsed as (t*f)/m
+    // newton::speed speed = time * force / mass;
+
+    std::cout << "force(" << force << ") / mass(" << mass << ") * time(" << time
+              << ") = speed(" << speed << ")" << std::endl;
+  }
+
+  return 0;
+}
+```
+
+# Usage 
+
+At its core this library is simply a way to quickly define an operator overload, with a few convenience classes to help you get started. Let's take a look at the `dspg::strong_types::strong_value` struct. Its usage is very similar to what we saw in the previous example.
+
+```cpp
+using my_strong_value = 
+                      // 'int' is the underlying type
+    st::strong_value< int,
+                      // we use a unique tag to differenciate our type from other 
+                      // strong values. The type doesn't need to be defined, it's
+                      // what's known as a phantom type. You can also use 
+                      struct some_tag,
+                      // After the tag, we can add modifiers. strong_value doesn't 
+                      // embed anything by default, so with these declarations we'll only
+                      // be able to compare it with itself and to add 'int's to it.
+                      st::comparable,
+                      st::implement_reflexive_operator<
+                          st::plus,
+                          int,
+                          st::construct_t<st::deduce_t>
+                          >
+                      >
+```
+
+```cpp
+template <class Type, class Tag, class... Params>
+struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
+  using value_type = Type;
+
+  template <
+      class U,
+      std::enable_if_t<std::is_convertible<std::decay_t<U>, value_type>::value,
+                       int> = 0>
+  constexpr explicit strong_value(U&& u) noexcept : value{std::forward<U>(u)} {}
+
+  constexpr strong_value() noexcept : value{} {}
+
+  value_type value;
+};
 ```

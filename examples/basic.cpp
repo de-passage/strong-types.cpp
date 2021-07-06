@@ -54,11 +54,14 @@ int main(int argc, char** argv) {
 
   newton::force force;
   newton::mass mass;
-  format >> force >>
-      mass;  // thanks to our custom modifier, our types are streamable
+  // thanks to our custom modifier, our types are streamable
+  format >> force >> mass;
 
   // we can of course compare and do arithmetics with integers.
   if (mass == 0) {
+    // Try turning on -Wconversion and replacing '1' with '-1', you'll get a
+    // proper warning telling you that your int is implicitely converted to
+    // unsigned int
     mass += 1;
   }
 
