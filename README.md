@@ -145,17 +145,13 @@ using my_strong_value =
     st::strong_value< int,
                       // we use a unique tag to differenciate our type from other 
                       // strong values. The type doesn't need to be defined, it's
-                      // what's known as a phantom type. You can also use 
+                      // what's known as a phantom type.
                       struct some_tag,
                       // After the tag, we can add modifiers. strong_value doesn't 
                       // embed anything by default, so with these declarations we'll only
                       // be able to compare it with itself and to add 'int's to it.
                       st::comparable,
-                      st::implement_reflexive_operator<
-                          st::plus,
-                          int,
-                          st::construct_t<st::deduce_t>
-                          >
+                      st::commutative_under<st::plus, int>
                       >
 ```
 

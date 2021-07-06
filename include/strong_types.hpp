@@ -6,60 +6,6 @@
 namespace dpsg {
 namespace strong_types {
 
-// clang-tidy off
-#define DPSG_DEFINE_BINARY_OPERATOR(name, sym)                             \
-  struct name {                                                            \
-    template <class T, class U>                                            \
-    constexpr inline decltype(auto) operator()(T&& left,                   \
-                                               U&& right) const noexcept { \
-      return std::forward<T>(left) sym std::forward<U>(right);             \
-    }                                                                      \
-  };
-
-#define DPSG_DEFINE_UNARY_OPERATOR(name, sym)                          \
-  struct name {                                                        \
-    template <class U>                                                 \
-    constexpr inline decltype(auto) operator()(U&& u) const noexcept { \
-      return sym std::forward<U>(u);                                   \
-    }                                                                  \
-  };
-
-#define DPSG_APPLY_TO_BINARY_OPERATORS(f)                            \
-  f(plus, +) f(minus, -) f(divides, /) f(multiplies, *) f(modulo, %) \
-      f(equal, ==) f(not_equal, !=) f(lesser, <) f(greater, >)       \
-          f(lesser_equal, <=) f(greater_equal, >=) f(binary_or, |)   \
-              f(binary_and, &) f(binary_xor, ^) f(shift_right, <<)   \
-                  f(shift_left, >>) f(boolean_or, ||) f(boolean_and, &&)
-
-#define DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(f)                       \
-  f(plus_assign, +=) f(minus_assign, -=) f(divides_assign, /=)                 \
-      f(multiplies_assign, *=) f(modulo_assign, %=) f(shift_right_assign, <<=) \
-          f(shift_left_assign, >>=) f(binary_and_assign, &=)                   \
-              f(binary_or_assign, |=) f(binary_xor_assign, ^=)
-
-#define DPSG_APPLY_TO_UNARY_OPERATORS(f)                           \
-  f(boolean_not, !) f(binary_not, ~) f(negate, -) f(positivate, +) \
-      f(dereference, *) f(address_of, &) f(increment, ++) f(decrement, --)
-
-DPSG_APPLY_TO_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
-DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
-DPSG_APPLY_TO_UNARY_OPERATORS(DPSG_DEFINE_UNARY_OPERATOR)
-// clang-tidy on
-
-struct post_increment {
-  template <class U>
-  constexpr inline decltype(auto) operator()(U& u) const noexcept {
-    return u++;
-  }
-};
-
-struct post_decrement {
-  template <class U>
-  constexpr inline decltype(auto) operator()(U& u) const noexcept {
-    return u--;
-  }
-};
-
 namespace detail {
 template <class...>
 struct void_t_impl {
@@ -128,6 +74,104 @@ struct construct_t {
   }
 };
 
+namespace black_magic {
+template <class... Ts>
+struct tuple;
+
+template <class T1, class T2>
+struct concat_tuples;
+template <class... T1s, class... T2s>
+struct concat_tuples<tuple<T1s...>, tuple<T2s...>> {
+  using type = tuple<T1s..., T2s...>;
+};
+template <class T1, class T2>
+using concat_tuples_t = typename concat_tuples<T1, T2>::type;
+
+template <class T, class U>
+struct for_each;
+template <class U, class... Ts>
+struct for_each<tuple<Ts...>, U> : U::template type<Ts>... {};
+
+template <template <class...> class S, class... Ts>
+struct apply {
+  template <class Tuple>
+  struct type;
+  template <template <class...> class Tuple, class Op, class Target>
+  struct type<Tuple<Op, Target>> : S<Op, Target, Ts...> {};
+};
+
+struct deduce;
+namespace detail {
+template <class T, class D>
+struct deduce_return_type_impl {
+  using type = T;
+};
+template <class D>
+struct deduce_return_type_impl<deduce, D> {
+  using type = D;
+};
+
+}  // namespace detail
+
+template <class T, class D>
+using deduce_return_type = typename detail::deduce_return_type_impl<T, D>::type;
+}  // namespace black_magic
+
+// clang-tidy off
+#define DPSG_DEFINE_BINARY_OPERATOR(name, sym)                             \
+  struct name {                                                            \
+    template <class T, class U>                                            \
+    constexpr inline decltype(auto) operator()(T&& left,                   \
+                                               U&& right) const noexcept { \
+      return std::forward<T>(left) sym std::forward<U>(right);             \
+    }                                                                      \
+  };
+
+#define DPSG_DEFINE_UNARY_OPERATOR(name, sym)                          \
+  struct name {                                                        \
+    template <class U>                                                 \
+    constexpr inline decltype(auto) operator()(U&& u) const noexcept { \
+      return sym std::forward<U>(u);                                   \
+    }                                                                  \
+  };
+
+#define DPSG_APPLY_TO_BINARY_OPERATORS(f)                            \
+  f(plus, +) f(minus, -) f(divides, /) f(multiplies, *) f(modulo, %) \
+      f(equal, ==) f(not_equal, !=) f(lesser, <) f(greater, >)       \
+          f(lesser_equal, <=) f(greater_equal, >=) f(binary_or, |)   \
+              f(binary_and, &) f(binary_xor, ^) f(shift_right, <<)   \
+                  f(shift_left, >>) f(boolean_or, ||) f(boolean_and, &&)
+
+#define DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(f)                       \
+  f(plus_assign, +=) f(minus_assign, -=) f(divides_assign, /=)                 \
+      f(multiplies_assign, *=) f(modulo_assign, %=) f(shift_right_assign, <<=) \
+          f(shift_left_assign, >>=) f(binary_and_assign, &=)                   \
+              f(binary_or_assign, |=) f(binary_xor_assign, ^=)
+
+#define DPSG_APPLY_TO_UNARY_OPERATORS(f)                           \
+  f(boolean_not, !) f(binary_not, ~) f(negate, -) f(positivate, +) \
+      f(dereference, *) f(address_of, &) f(increment, ++) f(decrement, --)
+
+DPSG_APPLY_TO_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
+DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
+DPSG_APPLY_TO_UNARY_OPERATORS(DPSG_DEFINE_UNARY_OPERATOR)
+// clang-tidy on
+
+struct post_increment {
+  template <class U>
+  constexpr inline decltype(auto) operator()(U& u) const noexcept {
+    return u++;
+  }
+};
+
+struct post_decrement {
+  template <class U>
+  constexpr inline decltype(auto) operator()(U& u) const noexcept {
+    return u--;
+  }
+};
+
+namespace detail {
 template <class Op,
           class Left,
           class Right,
@@ -230,16 +274,44 @@ DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(
     DPSG_DEFINE_FRIEND_SELF_ASSIGN_BINARY_OPERATOR_IMPLEMENTATION)
 DPSG_APPLY_TO_UNARY_OPERATORS(DPSG_DEFINE_FRIEND_UNARY_OPERATOR_IMPLEMENTATION)
 
+}  // namespace detail
+
+template <class Op,
+          class Left,
+          class Right,
+          class Result = passthrough_t,
+          class TransformLeft = get_value_t,
+          class TransformRight = get_value_t>
+using implement_binary_operation = detail::implement_binary_operation<
+    Op,
+    Left,
+    Right,
+    black_magic::deduce_return_type<Result, passthrough_t>,
+    TransformLeft,
+    TransformRight>;
+
+template <class Op,
+          class Arg,
+          class Result = passthrough_t,
+          class Transform = get_value_t>
+using implement_unary_operation = detail::implement_unary_operation<
+    Op,
+    Arg,
+    black_magic::deduce_return_type<Result, passthrough_t>,
+    Transform>;
+
 template <class Operation,
           class Arg,
-          class Result,
+          class Result = black_magic::deduce,
           class Transform = get_value_t>
-struct implement_reflexive_operation : implement_binary_operation<Operation,
-                                                                  Arg,
-                                                                  Arg,
-                                                                  Result,
-                                                                  Transform,
-                                                                  Transform> {};
+struct implement_symmetric_operation
+    : implement_binary_operation<
+          Operation,
+          Arg,
+          Arg,
+          black_magic::deduce_return_type<Result, construct_t<Arg>>,
+          Transform,
+          Transform> {};
 
 template <class Operation,
           class Left,
@@ -247,7 +319,7 @@ template <class Operation,
           class Return = passthrough_t,
           class TransformLeft = get_value_t,
           class TransformRight = get_value_t>
-struct commutative_operator_implementation
+struct implement_commutative_operation
     : implement_binary_operation<Operation,
                                  Left,
                                  Right,
@@ -260,33 +332,6 @@ struct commutative_operator_implementation
                                  Return,
                                  TransformRight,
                                  TransformLeft> {};
-
-namespace black_magic {
-template <class... Ts>
-struct tuple;
-
-template <class T1, class T2>
-struct concat_tuples;
-template <class... T1s, class... T2s>
-struct concat_tuples<tuple<T1s...>, tuple<T2s...>> {
-  using type = tuple<T1s..., T2s...>;
-};
-template <class T1, class T2>
-using concat_tuples_t = typename concat_tuples<T1, T2>::type;
-
-template <class T, class U>
-struct for_each;
-template <class U, class... Ts>
-struct for_each<tuple<Ts...>, U> : U::template type<Ts>... {};
-
-template <template <class...> class S, class... Ts>
-struct apply {
-  template <class Tuple>
-  struct type;
-  template <template <class...> class Tuple, class Op, class Target>
-  struct type<Tuple<Op, Target>> : S<Op, Target, Ts...> {};
-};
-}  // namespace black_magic
 
 using comparison_operators = black_magic::
     tuple<equal, not_equal, lesser_equal, greater_equal, lesser, greater>;
@@ -336,21 +381,21 @@ template <class Arg1,
           class T2 = get_value_t>
 struct make_commutative_operator {
   template <class Op>
-  using type = commutative_operator_implementation<Op, Arg1, Arg2, R, T1, T2>;
+  using type = implement_commutative_operation<Op, Arg1, Arg2, R, T1, T2>;
 };
-template <class Arg, class R, class T = get_value_t>
-struct make_reflexive_operator {
+template <class Arg, class R = black_magic::deduce, class T = get_value_t>
+struct make_symmetric_operator {
   template <class Op>
-  using type = implement_reflexive_operation<Op, Arg, R, T>;
+  using type = implement_symmetric_operation<Op, Arg, R, T>;
 };
-template <class Arg, class R, class T>
+template <class Arg, class R = black_magic::deduce, class T = get_value_t>
 struct make_unary_operator {
   template <class Op>
   using type = implement_unary_operation<Op, Arg, R, T>;
 };
 template <class Left,
           class Right,
-          class R,
+          class R = black_magic::deduce,
           class TL = get_value_t,
           class TR = get_value_t>
 struct make_binary_operator {
@@ -362,7 +407,7 @@ struct comparable {
   template <class Arg>
   struct type
       : black_magic::for_each<comparison_operators,
-                              make_reflexive_operator<Arg, passthrough_t>> {};
+                              make_symmetric_operator<Arg, passthrough_t>> {};
 };
 
 template <class Arg2>
@@ -377,18 +422,23 @@ struct arithmetic {
   template <class Arg>
   struct type
       : black_magic::for_each<binary_arithmetic_operators,
-                              make_reflexive_operator<Arg, construct_t<Arg>>>,
+                              make_symmetric_operator<Arg, construct_t<Arg>>>,
         black_magic::for_each<
             unary_arithmetic_operators,
             make_unary_operator<Arg, construct_t<Arg>, get_value_t>> {};
 };
 
-namespace detail {
-struct deduce;
-}
+template <class Op,
+          class Return = black_magic::deduce,
+          class Transform = get_value_t>
+struct symmetric {
+  template <class T>
+  using type =
+      implement_binary_operation<Op, T, T, Return, Transform, Transform>;
+};
 
 template <class Arg2,
-          class R = detail::deduce,
+          class R = black_magic::deduce,
           class T1 = get_value_t,
           class T2 = get_value_t>
 struct arithmetically_compatible_with {
@@ -398,31 +448,41 @@ struct arithmetically_compatible_with {
                     make_commutative_operator<
                         Arg1,
                         Arg2,
-                        std::conditional_t<std::is_same_v<detail::deduce, R>,
-                                           construct_t<Arg1>,
-                                           R>,
+                        black_magic::deduce_return_type<R, construct_t<Arg1>>,
                         T1,
                         T2>> {};
 };
 
 template <class Op,
           class Arg2,
-          class R = detail::deduce,
+          class R = black_magic::deduce,
           class T1 = get_value_t,
           class T2 = get_value_t>
 struct commutative_under {
   template <class Arg1>
-  using type = commutative_operator_implementation<Op, Arg1, Arg2, R, T1, T2>;
+  using type = implement_commutative_operation<
+      Op,
+      Arg1,
+      Arg2,
+      black_magic::deduce_return_type<R, construct_t<Arg1>>,
+      T1,
+      T2>;
 };
 
 template <class Op,
           class Arg2,
-          class R,
+          class R = black_magic::deduce,
           class T1 = get_value_t,
           class T2 = get_value_t>
 struct compatible_under {
   template <class Arg1>
-  using type = implement_binary_operation<Op, Arg1, Arg2, R, T1, T2>;
+  using type = implement_binary_operation<
+      Op,
+      Arg1,
+      Arg2,
+      black_magic::deduce_return_type<R, construct_t<Arg1>>,
+      T1,
+      T2>;
 };
 
 template <class T, class... Ts>
