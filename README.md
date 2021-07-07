@@ -1,5 +1,5 @@
 This is the result of my life-long (OK, maybe just-a-couple-years-long) quest for the ultimate strong type engine for C++. Other solutions do exist but I haven't found anything that satisfies the level of granularity that I want for my strong type declarations.
-Compiled and tested with clang 11.0 and g++ 6.4 with flag -std=c++14.
+Compiled and tested with clang 11.0 and g++ 8.3.1 with flag -std=c++14.
 
 # Strong types
 
