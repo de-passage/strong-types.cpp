@@ -144,8 +144,7 @@ using my_strong_value =
                       // 'int' is the underlying type
     st::strong_value< int,
                       // we use a unique tag to differenciate our type from other 
-                      // strong values. The type doesn't need to be defined, it's
-                      // what's known as a phantom type.
+                      // strong values. The type doesn't need to be actually defined
                       struct some_tag,
                       // After the tag, we can add modifiers. strong_value doesn't 
                       // embed anything by default, so with these declarations we'll only
@@ -154,7 +153,7 @@ using my_strong_value =
                       st::commutative_under<st::plus, int>
                       >
 ```
-
+The definition is quite simple:
 ```cpp
 template <class Type, class Tag, class... Params>
 struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
@@ -171,3 +170,9 @@ struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
   value_type value;
 };
 ```
+As you can see it's a very simple wrapper around a 'value' member with an explicit constructor to prevent silent conversions. The magic happens in the inheritance definition `derive_t<strong_value<Type, Tag, Params...>, Params...>`: we call the 'derive_t' meta function with the type that we're defining and the list of modifiers that we want to use to generate operator overloads.  
+'number' is defined in a similar fashion:
+```cpp
+<copy number definition here>
+```
+The only difference with 'strong_value' is that we give it a set of modifiers to automatically implement a number of overloads corresponding to arithmetic and comparison operations between two 'number's of the same tag or a 'number' and a variable implicitely compatible into the type of its underlying value.
