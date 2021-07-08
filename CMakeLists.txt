@@ -56,7 +56,6 @@ list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
 
 function(set_target_options TARGET)
 if(MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
   target_compile_options(${TARGET} PRIVATE /W3 /WX)
 else()
   target_compile_options(${TARGET} PRIVATE -pedantic -Wall -Wextra)

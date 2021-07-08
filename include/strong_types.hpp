@@ -406,16 +406,25 @@ struct make_binary_operator {
 struct comparable {
   template <class Arg>
   struct type
-      : black_magic::for_each<comparison_operators,
-                              make_symmetric_operator<Arg, passthrough_t>> {};
+      : black_magic::for_each<
+            comparison_operators,
+            make_symmetric_operator<
+                Arg,
+                construct_t<bool> /* passthrough causes rt errors on MSVC */>> {
+  };
 };
 
 template <class Arg2>
 struct comparable_with {
   template <class Arg1>
-  struct type : black_magic::for_each<
-                    comparison_operators,
-                    make_commutative_operator<Arg1, Arg2, passthrough_t>> {};
+  struct type
+      : black_magic::for_each<
+            comparison_operators,
+            make_commutative_operator<
+                Arg1,
+                Arg2,
+                construct_t<bool> /* passthrough causes rt errors on MSVC */>> {
+  };
 };
 
 struct arithmetic {

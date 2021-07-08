@@ -1,5 +1,5 @@
 This is the result of my life-long (OK, maybe just-a-couple-years-long) quest for the ultimate strong type engine for C++. Other solutions do exist but I haven't found anything that satisfies the level of granularity that I want for my strong type declarations.
-Compiled and tested with clang 11.0 and g++ 8.3.1 with flag -std=c++14.
+Compiled and tested with clang 11.0 ~~and g++ 8.3.1~~ with flag -std=c++14; and VC 2019.
 
 # Strong types
 
@@ -60,7 +60,7 @@ using acceleration =
     st::number<double, struct acceleration_tag>;  // most basic form
 using mass = st::number<unsigned int,
                         struct mass_tag,
-                        custom_modifier::streamable>;  // additionnal modifier.
+                        custom_modifier::streamable>;  // additionnal modifier
 using force =
     st::number<unsigned int,
                struct force_tag,
@@ -204,14 +204,30 @@ Using our new knowledge of `derive_t`, we can now implement the complete relatio
 ```cpp
 namespace st = dpsg::strong_types;
 
-struct force;
-struct mass : st::derive_number<mass> {
+struct mass : derive_number<mass, double> {
+  constexpr mass() noexcept = default;
+  constexpr explicit mass(double m) noexcept : value{m} {}
   double value{};
 };
-struct acceleration : st::derive_number<acceleration, st::commutative_under<st::multiplies>, mass, st::construct_t<force>> {
+struct acceleration
+    : derive_number<acceleration,
+                    double,
+                    st::commutative_under<st::multiplies,
+                                          mass,
+                                          st::construct_t<struct force>>> {
+  constexpr acceleration() noexcept = default;
+  constexpr explicit acceleration(double a) noexcept : value{a} {}
   double value{};
 };
-struct force : st::derive_number<force, st::compatible_under<st::divides>, mass, st::construct_t<acceleration>> {
+struct force
+    : derive_number<force,
+                    double,
+                    st::compatible_under<st::divides,
+                                         mass,
+                                         st::construct_t<acceleration>>> {
+  constexpr force() noexcept = default;
+  constexpr explicit force(double f) noexcept : value{f} {}
   double value{};
 };
+
 ```
