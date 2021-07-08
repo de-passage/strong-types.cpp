@@ -156,23 +156,62 @@ using my_strong_value =
 The definition is quite simple:
 ```cpp
 template <class Type, class Tag, class... Params>
-struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
+struct strong_value : 
+      derive_t< strong_value<Type, Tag, Params...>,
+                Params...
+              >
+{
   using value_type = Type;
 
-  template <
-      class U,
-      std::enable_if_t<std::is_convertible<std::decay_t<U>, value_type>::value,
-                       int> = 0>
-  constexpr explicit strong_value(U&& u) noexcept : value{std::forward<U>(u)} {}
-
   constexpr strong_value() noexcept : value{} {}
+  
+  constexpr explicit number(const value_type& v) noexcept : value{v} {}
 
   value_type value;
 };
 ```
-As you can see it's a very simple wrapper around a 'value' member with an explicit constructor to prevent silent conversions. The magic happens in the inheritance definition `derive_t<strong_value<Type, Tag, Params...>, Params...>`: we call the 'derive_t' meta function with the type that we're defining and the list of modifiers that we want to use to generate operator overloads.  
-'number' is defined in a similar fashion:
+As you can see it's a very simple wrapper around a `value` member with an explicit constructor to prevent silent conversions. The magic happens in the inheritance definition `derive_t<strong_value<Type, Tag, Params...>, Params...>`: we call the `derive_t` meta function with the type that we're defining and the list of modifiers that we want to use to generate operator overloads.  
+`number` is defined in a similar fashion:
 ```cpp
-<copy number definition here>
+template <class Type, class Tag, class... Params>
+struct number : 
+            derive_t< number<Type, Tag, Params...>,
+                      arithmetic,
+                      comparable,
+                      arithmetically_compatible_with<Type>,
+                      comparable_with<Type>,
+                      Params...
+                    >
+{
+  using value_type = Type;
+
+  constexpr number() noexcept = default;
+
+  constexpr explicit number(const value_type& v) noexcept : value{v} {}
+
+  value_type value;
+};
 ```
-The only difference with 'strong_value' is that we give it a set of modifiers to automatically implement a number of overloads corresponding to arithmetic and comparison operations between two 'number's of the same tag or a 'number' and a variable implicitely compatible into the type of its underlying value.
+The only difference with `strong_value` is that we give it a set of modifiers to automatically implement a number of overloads corresponding to arithmetic and comparison operations between two `number`s of the same tag or a `number` and a variable implicitely compatible into the type of its underlying value.
+
+`derive_t` itself is extremely simple, it takes a type, and a list of types with a nested template named `type` (such as `streamable` from the first example), and applies the first type to each nested template:
+```cpp
+template <class T, class... Ts>
+struct derive_t : Ts::template type<T>... {};
+```
+As you may have gathered this library is basically just `derive_t` and a bunch of predefined modifiers defining functions and operator overloads (plus some TMP utilities that we'll detail later). With this in our toolbelt, we already have a lot of possibilities. If you tried to play with the first example, you may have noticed that there is no good way to encode `acceleration * mass = force`, since C++ doesn't allow us to predeclare `using` declarations. `force` and `mass` do not exist at the point where `acceleration` is defined so we couldn't use the modifier `commutative_under<multiplies, mass, construct_t<force>>` to implement the appropriate `operator*` overloads.  
+Using our new knowledge of `derive_t`, we can now implement the complete relationship:
+```cpp
+namespace st = dpsg::strong_types;
+
+struct force;
+struct mass : st::derive_number<mass> {
+  double value{};
+};
+struct acceleration : st::derive_number<acceleration, st::commutative_under<st::multiplies>, mass, st::construct_t<force>> {
+  double value{};
+};
+struct force : st::derive_number<force, st::compatible_under<st::divides>, mass, st::construct_t<acceleration>> {
+  double value{};
+};
+```
