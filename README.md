@@ -203,8 +203,8 @@ As you may have gathered this library is basically just `derive_t` and a bunch o
 Using our new knowledge of `derive_t`, we can now implement the complete relationship:
 ```cpp
 namespace st = dpsg::strong_types;
-template <class T, class U, class... Ts>
 
+template <class T, class U, class... Ts>
 using derive_number = st::derive_t<T,
                                    st::arithmetic,
                                    st::comparable,

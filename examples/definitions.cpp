@@ -80,9 +80,11 @@ int main(int argc, char**) {
   else if (value == perfect_number_of_arguments) {
     std::cout << "Perfect" << std::endl;
   }
-  acceleration a;
-  mass m;
-  force f = m * a;
-  a = f / m;
+  acceleration a{static_cast<double>(argc)};
+  mass m{3.78};
+  force f1 = m * a;
+  a = f1 / m;
+  force f2 = a * m;
+  std::cout << "f1(" << f1.value << ") = f2(" << f2.value << ")" << std::endl;
   return 0;
 }
