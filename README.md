@@ -1,5 +1,5 @@
 This is the result of my life-long (OK, maybe just-a-couple-years-long) quest for the ultimate strong type engine for C++. Other solutions do exist but I haven't found anything that satisfies the level of granularity that I want for my strong type declarations.
-Compiled and tested with clang 11.0 ~~and g++ 8.3.1~~ with flag -std=c++14; and VC 2019.
+Compiled and tested with clang 11.0 and g++ 8.3.1 with flag -std=c++14; and VC 2019 with /std:c++14.
 
 # Strong types
 
@@ -33,6 +33,12 @@ Some day, we might get a nice standard solution to do that, but for now we have 
 6. sacrifice your soul to the Great Old C++ Ones and acquire the forbidden knowledge of template metaprogramming, then proceed to summon with dark magic a meta-beast that will your bidding from within the code itself. This is the solution I chose here. It's always the solution I choose...
 
 # Getting Started
+
+## Installation 
+
+The library is contained in a single header file, simply copy [strong_types.hpp](https://raw.githubusercontent.com/de-passage/strong-types.cpp/main/include/strong_types.hpp) somewhere where your compiler can find it and you're good to go.
+
+## Example
 
 This example is a bit long but showcases basically all the functionalities of the library, take the time to read it through.
 ``` cpp

@@ -42,8 +42,10 @@ TEST(Basic, Comparisons) {
 
   for (int i = 1; i <= 10000; i *= 10) {
     n o1{rand(min{0}, max{i - 1})};
-    n o2{rand(min{i}, max{i})};
+    n o2{rand(min{o1.value + 1}, max{i})};
     n o3 = o1;
+    std::cout << "checking o1(" << o1.value << ") & o2(" << o2.value << ")"
+              << std::endl;
     ASSERT_EQ(o1, o3);
     ASSERT_EQ(o1, o1);
     ASSERT_NE(o1, o2);
@@ -63,5 +65,29 @@ TEST(Basic, Comparisons) {
     ASSERT_GE(o1, o3);
     ASSERT_GE(o3, o3);
     ASSERT_FALSE(o3 >= o2);
+  }
+}
+
+TEST(Basic, Addition) {
+  constexpr n n1{1}, n2{0}, n3{42}, n4{21};
+  static_assert(n1 + n2 == n1, "");
+  static_assert(n1 + n2 == 1, "");
+  static_assert(n3 == n4 + n4, "");
+  static_assert((n1 + n3) + n4 == n1 + (n3 + n4), "");
+  static_assert(n1 + n3 + n4 == 64, "");
+  static_assert(n1 + n3 == n1 + n3, "");
+  static_assert(n1 + n3 == n3 + n1, "");
+  static_assert(n1 + n3 == 43, "");
+
+  for (int i = 1; i <= 10000; i *= 10) {
+    n o1{rand(min{0}, max{i})};
+    n o2{rand(min{0}, max{i})};
+    std::cout << "checking o1(" << o1.value << ") & o2(" << o2.value << ")"
+              << std::endl;
+    ASSERT_EQ(n1 + n2, n1);
+    ASSERT_EQ(n3, n4 + n4);
+    ASSERT_EQ((n1 + n3) + n4, n1 + (n3 + n4));
+    ASSERT_EQ(n1 + n3, n1 + n3);
+    ASSERT_EQ(n1 + n3, n3 + n1);
   }
 }
