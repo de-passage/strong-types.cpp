@@ -1,6 +1,7 @@
 #ifndef GUARD_DPSG_STRONG_TYPES_HPP
 #define GUARD_DPSG_STRONG_TYPES_HPP
 
+#include <type_traits>
 #include <utility>
 
 namespace dpsg {
@@ -102,19 +103,29 @@ struct apply {
 
 struct deduce;
 namespace detail {
-template <class T, class D>
+template <class T, class D, class R, class = void>
 struct deduce_return_type_impl {
   using type = T;
 };
-template <class D>
-struct deduce_return_type_impl<deduce, D> {
+template <class D, class R>
+struct deduce_return_type_impl<deduce, D, R> {
   using type = D;
+};
+template <class D, class R>
+struct deduce_return_type_impl<R, D, R> {
+  using type = R;
+};
+
+struct whatever;
+template <template<class ...> class T, class D, class R, class ...Ts>
+struct deduce_return_type_impl<T<Ts...>, D, R, std::enable_if_t<!std::is_same<T<Ts...>, R>::value>> {
+  using type = T<typename deduce_return_type_impl<Ts, R, R>::type...>;
 };
 
 }  // namespace detail
 
-template <class T, class D>
-using deduce_return_type = typename detail::deduce_return_type_impl<T, D>::type;
+template <class T, class D, class R>
+using deduce_return_type = typename detail::deduce_return_type_impl<T, D, R>::type;
 }  // namespace black_magic
 
 // clang-tidy off
@@ -286,7 +297,7 @@ using implement_binary_operation = detail::implement_binary_operation<
     Op,
     Left,
     Right,
-    black_magic::deduce_return_type<Result, passthrough_t>,
+    Result,
     TransformLeft,
     TransformRight>;
 
@@ -297,19 +308,19 @@ template <class Op,
 using implement_unary_operation = detail::implement_unary_operation<
     Op,
     Arg,
-    black_magic::deduce_return_type<Result, passthrough_t>,
+    Result,
     Transform>;
 
 template <class Operation,
           class Arg,
-          class Result = black_magic::deduce,
+          class Result = construct_t<Arg>,
           class Transform = get_value_t>
 struct implement_symmetric_operation
     : implement_binary_operation<
           Operation,
           Arg,
           Arg,
-          black_magic::deduce_return_type<Result, construct_t<Arg>>,
+          Result,
           Transform,
           Transform> {};
 
@@ -457,7 +468,7 @@ struct arithmetically_compatible_with {
                     make_commutative_operator<
                         Arg1,
                         Arg2,
-                        black_magic::deduce_return_type<R, construct_t<Arg1>>,
+                        black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
                         T1,
                         T2>> {};
 };
@@ -473,7 +484,7 @@ struct commutative_under {
       Op,
       Arg1,
       Arg2,
-      black_magic::deduce_return_type<R, construct_t<Arg1>>,
+      black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
       T1,
       T2>;
 };
@@ -489,7 +500,7 @@ struct compatible_under {
       Op,
       Arg1,
       Arg2,
-      black_magic::deduce_return_type<R, construct_t<Arg1>>,
+      black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
       T1,
       T2>;
 };
@@ -516,7 +527,7 @@ template <class Type, class Tag, class... Params>
 struct number : derive_t<number<Type, Tag, Params...>,
                          arithmetic,
                          comparable,
-                         arithmetically_compatible_with<Type>,
+                         arithmetically_compatible_with<Type, cast_to_then_construct_t<Type, black_magic::deduce>>,
                          comparable_with<Type>,
                          Params...> {
   using value_type = Type;
