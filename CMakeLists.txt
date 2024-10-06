@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12.0)
+cmake_minimum_required(VERSION 3.14.0)
 project(strong-types VERSION 1.0.0)
 
 include(CTest)
@@ -46,18 +46,20 @@ if (BUILD_TESTING)
   include_directories("${gtest_SOURCE_DIR}/include")
 endif()
 
-set (TEST_SRC_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/)
-set (EXAMPLE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples/)
-set (LIBRARY_INCLUDE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/)
+###########
+# Sources #
+###########
+
+set (TEST_SRC_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/tests/)
+set (EXAMPLE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/examples/)
+set (LIBRARY_INCLUDE_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/)
 
 add_library(strong-types INTERFACE)
-target_include_directories(strong-types INTERFACE "${LIBRARY_INCLUDE_DIRECTORY}")
-target_sources(strong-types INTERFACE FILE_SET HEADERS FILES "${LIBRARY_INCLUDE_DIRECTORY}/strong_types.hpp" BASE_DIRS "${LIBRARY_INCLUDE_DIRECTORY}")
-
-set (TEST_SRC_FILES
-  basic.cpp)
-
-list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
+target_include_directories(strong-types INTERFACE
+  $<BUILD_INTERFACE:${LIBRARY_INCLUDE_DIRECTORY}>
+  $<INSTALL_INTERFACE:include>
+)
+target_sources(strong-types INTERFACE FILE_SET HEADERS FILES "${LIBRARY_INCLUDE_DIRECTORY}/strong_types.hpp" BASE_DIRS "${LIBRARY_INCLUDE_DIRECTORY}" )
 
 function(set_target_options TARGET)
 if(MSVC)
@@ -68,12 +70,32 @@ endif(MSVC)
 endfunction()
 
 if (BUILD_TESTING)
+  set (TEST_SRC_FILES basic.cpp)
+  list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
+
   add_executable(tests ${TEST_SRC_FILES})
   target_link_libraries(tests gtest_main strong-types)
   set_target_options(tests)
   add_test(NAME gtests COMMAND tests)
 
-  add_subdirectory(${EXAMPLE_DIRECTORY})
 endif()
+add_subdirectory(${EXAMPLE_DIRECTORY})
 
-install(TARGETS strong-types FILE_SET HEADERS)
+###########
+# Install #
+###########
+set(CONFIG_FILE_DESTINATION "lib/cmake/strong-types" CACHE PATH "Path to the CMake config file. Used to configure the vcpkg install")
+
+install(TARGETS strong-types EXPORT stTargets FILE_SET HEADERS)
+install(EXPORT stTargets  NAMESPACE strong-types:: FILE strong-types-config.cmake DESTINATION "${CONFIG_FILE_DESTINATION}")
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/strong-types-config-version.cmake"
+  COMPATIBILITY AnyNewerVersion
+  ARCH_INDEPENDENT
+)
+
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/strong-types-config-version.cmake"
+  DESTINATION "${CONFIG_FILE_DESTINATION}")
