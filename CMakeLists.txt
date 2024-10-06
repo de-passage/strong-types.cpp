@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.12.0)
-project(strong-types VERSION 0.1.0)
+project(strong-types VERSION 1.0.0)
 
 include(CTest)
-enable_testing()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
@@ -15,41 +14,47 @@ include(CPack)
 # Google Test #
 ###############
 
-# Download and unpack googletest at configure time
-configure_file(gtest.CMakeLists.txt googletest-download/CMakeLists.txt)
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-if(result)
-  message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+if (BUILD_TESTING)
+  # Download and unpack googletest at configure time
+  configure_file(gtest.CMakeLists.txt googletest-download/CMakeLists.txt)
+  execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+    RESULT_VARIABLE result
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+  if(result)
+    message(FATAL_ERROR "CMake step for googletest failed: ${result}")
+  endif()
+  execute_process(COMMAND ${CMAKE_COMMAND} --build .
+    RESULT_VARIABLE result
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
+  if(result)
+    message(FATAL_ERROR "Build step for googletest failed: ${result}")
+  endif()
+
+  # Prevent overriding the parent project's compiler/linker
+  # settings on Windows
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+  # Add googletest directly to our build. This defines
+  # the gtest and gtest_main targets.
+  add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
+                   ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
+                   EXCLUDE_FROM_ALL)
+
+  # The gtest/gtest_main targets carry header search path
+  # dependencies automatically when using CMake 2.8.11 or
+  # later. Otherwise we have to add them here ourselves.
+  include_directories("${gtest_SOURCE_DIR}/include")
 endif()
-execute_process(COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/googletest-download )
-if(result)
-  message(FATAL_ERROR "Build step for googletest failed: ${result}")
-endif()
-
-# Prevent overriding the parent project's compiler/linker
-# settings on Windows
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-
-# Add googletest directly to our build. This defines
-# the gtest and gtest_main targets.
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
-                 ${CMAKE_CURRENT_BINARY_DIR}/googletest-build
-                 EXCLUDE_FROM_ALL)
-
-# The gtest/gtest_main targets carry header search path
-# dependencies automatically when using CMake 2.8.11 or
-# later. Otherwise we have to add them here ourselves.
-include_directories("${gtest_SOURCE_DIR}/include")
 
 set (TEST_SRC_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests/)
 set (EXAMPLE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples/)
 set (LIBRARY_INCLUDE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
-set (TEST_SRC_FILES 
+add_library(strong-types INTERFACE)
+target_include_directories(strong-types INTERFACE "${LIBRARY_INCLUDE_DIRECTORY}")
+target_sources(strong-types INTERFACE FILE_SET HEADERS FILES "${LIBRARY_INCLUDE_DIRECTORY}/strong_types.hpp" BASE_DIRS "${LIBRARY_INCLUDE_DIRECTORY}")
+
+set (TEST_SRC_FILES
   basic.cpp)
 
 list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
@@ -62,10 +67,13 @@ else()
 endif(MSVC)
 endfunction()
 
-add_executable(tests ${TEST_SRC_FILES})
-target_link_libraries(tests gtest_main)
-target_include_directories(tests PUBLIC ${LIBRARY_INCLUDE_DIRECTORY})
-set_target_options(tests)
-add_test(NAME gtests COMMAND tests)
+if (BUILD_TESTING)
+  add_executable(tests ${TEST_SRC_FILES})
+  target_link_libraries(tests gtest_main strong-types)
+  set_target_options(tests)
+  add_test(NAME gtests COMMAND tests)
 
-add_subdirectory(${EXAMPLE_DIRECTORY})
+  add_subdirectory(${EXAMPLE_DIRECTORY})
+endif()
+
+install(TARGETS strong-types FILE_SET HEADERS)
