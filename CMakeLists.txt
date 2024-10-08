@@ -59,7 +59,13 @@ target_include_directories(strong-types INTERFACE
   $<BUILD_INTERFACE:${LIBRARY_INCLUDE_DIRECTORY}>
   $<INSTALL_INTERFACE:include>
 )
-target_sources(strong-types INTERFACE FILE_SET HEADERS FILES "${LIBRARY_INCLUDE_DIRECTORY}/strong_types.hpp" BASE_DIRS "${LIBRARY_INCLUDE_DIRECTORY}" )
+
+set(EXPORT_INCLUDE_FILES strong_types.hpp strong_types/iostream.hpp)
+list(TRANSFORM EXPORT_INCLUDE_FILES PREPEND "${LIBRARY_INCLUDE_DIRECTORY}/")
+target_sources(strong-types INTERFACE FILE_SET
+  HEADERS FILES ${EXPORT_INCLUDE_FILES}
+  BASE_DIRS "${LIBRARY_INCLUDE_DIRECTORY}"
+)
 
 function(set_target_options TARGET)
 if(MSVC)
@@ -70,7 +76,7 @@ endif(MSVC)
 endfunction()
 
 if (BUILD_TESTING)
-  set (TEST_SRC_FILES basic.cpp)
+  set (TEST_SRC_FILES basic.cpp iostream.cpp)
   list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
 
   add_executable(tests ${TEST_SRC_FILES})
