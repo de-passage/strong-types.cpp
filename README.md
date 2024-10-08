@@ -1,42 +1,43 @@
 This is the result of my life-long (OK, maybe just-a-couple-years-long) quest for the ultimate strong type engine for C++. Other solutions do exist but I haven't found anything that satisfies the level of granularity that I want for my strong type declarations.
 Compiled and tested with clang 11.0 and g++ 8.3.1 with flag -std=c++14; and VC 2019 with /std:c++14.
 
-# Strong types
-
-What are strong types you say? Well, let's start from an example you've probably seen before: 
-``` cpp
-double compute_speed(double force, double mass, double time);
-
-double acceleration = compute_speed(time, force, mass);
-```
-Now if you don't see what's wrong with the code above, this repo isn't for you. If, however, you enjoy robust code that can be modified and reused with confidence, the solution you're yearning for is *strong types*, the ability to produce a type that shares some or all of the characteristics of another, without being freely substitutable with the latter.
-In other words, you'd like the following code to fail to compile:
-``` cpp
-typedef int barable;
-
-void foo(int);
-void bar(barable);
-
-int i;
-barable b;
-
-foo(b); // fail here please
-bar(i); // ugh...
-```
-
-Some day, we might get a nice standard solution to do that, but for now we have to resort to manually implement our strong types ourselves. There are several potential solutions to that problem:
-1. declare that this isn't a real problem, stick with `int` everywhere and never have a civil conversation with me again
-2. try to implement manually wrapper types everytime you need one before giving up and going back to option 1
-3. write a template type that wraps any numeric type, some other common types and call it a day. That's not a bad solution, and there's a few options doing just that available online. It just doesn't quite satisfy my strong type OCD. I want to be able to define more precisely what different types can and cannot do.
-4. implement some sort of code generator that you feed with some sort of meta-language in return for your C++ boilerplate. Again something I wouldn't consider unless your project is big enough with all the tooling necessary to support an extra step in your development process.
-5. ditch C++ for some fancy functional language with great support for strong types. Boring.
-6. sacrifice your soul to the Great Old C++ Ones and acquire the forbidden knowledge of template metaprogramming, then proceed to summon with dark magic a meta-beast that will your bidding from within the code itself. This is the solution I chose here. It's always the solution I choose...
-
 # Getting Started
 
-## Installation 
+## Installation
 
-The library is contained in a single header file, simply copy [strong_types.hpp](https://raw.githubusercontent.com/de-passage/strong-types.cpp/main/include/strong_types.hpp) somewhere where your compiler can find it and you're good to go.
+At this point, all of the following steps require you to clone/download the repository.
+
+### Vcpkg
+
+A port is available for vcpkg in the *support/vcpkg* directory. I'll publish it someday, maybe. For now, you can copy the *strong_types* directory in your overlay directory and everything should work.
+
+In your vcpkg.json:
+``` json
+{
+    "dependencies": [
+        "strong-types"
+    ]
+}
+```
+
+### Using CMake
+
+The following should install the library in your system directories.
+
+``` bash
+cmake -B build -DBUILD_TESTING=OFF
+cmake --install build
+```
+
+To use the library, add the following to your CMakeLists.txt:
+``` cmake
+find_package(strong_types REQUIRED)
+target_link_libraries(<your target> PRIVATE strong_types::strong_types)
+```
+
+### Manual installation
+
+The library is header only, simply copy the files in the include directory somewhere where your compiler can find it and you're good to go.
 
 ## Example
 
@@ -141,18 +142,49 @@ int main(int argc, char** argv) {
 }
 ```
 
-# Usage 
+# Rationale
+
+What are strong types you say? Well, let's start from an example you've probably seen before:
+``` cpp
+double compute_speed(double force, double mass, double time);
+
+double acceleration = compute_speed(time, force, mass);
+```
+Now if you don't see what's wrong with the code above, this repo isn't for you. If, however, you enjoy robust code that can be modified and reused with confidence, the solution you're yearning for is *strong types*, the ability to produce a type that shares some or all of the characteristics of another, without being freely substitutable with the latter.
+In other words, you'd like the following code to fail to compile:
+``` cpp
+typedef int barable;
+
+void foo(int);
+void bar(barable);
+
+int i;
+barable b;
+
+foo(b); // fail here please
+bar(i); // ugh...
+```
+
+Some day, we might get a nice standard solution to do that, but for now we have to resort to manually implement our strong types ourselves. There are several potential solutions to that problem:
+1. declare that this isn't a real problem, stick with `int` everywhere and never have a civil conversation with me again
+2. try to implement manually wrapper types everytime you need one before giving up and going back to option 1
+3. write a template type that wraps any numeric type, some other common types and call it a day. That's not a bad solution, and there's a few options doing just that available online. It just doesn't quite satisfy my strong type OCD. I want to be able to define more precisely what different types can and cannot do.
+4. implement some sort of code generator that you feed with some sort of meta-language in return for your C++ boilerplate. Again something I wouldn't consider unless your project is big enough with all the tooling necessary to support an extra step in your development process.
+5. ditch C++ for some fancy functional language with great support for strong types. Boring.
+6. sacrifice your soul to the Great Old C++ Ones and acquire the forbidden knowledge of template metaprogramming, then proceed to summon with dark magic a meta-beast that will your bidding from within the code itself. This is the solution I chose here. It's always the solution I choose...
+
+# Usage
 
 At its core this library is simply a way to quickly define an operator overload, with a few convenience classes to help you get started. Let's take a look at the `dspg::strong_types::strong_value` struct. Its usage is very similar to what we saw in the previous example.
 
 ```cpp
-using my_strong_value = 
+using my_strong_value =
                       // 'int' is the underlying type
     st::strong_value< int,
-                      // we use a unique tag to differenciate our type from other 
+                      // we use a unique tag to differenciate our type from other
                       // strong values. The type doesn't need to be actually defined
                       struct some_tag,
-                      // After the tag, we can add modifiers. strong_value doesn't 
+                      // After the tag, we can add modifiers. strong_value doesn't
                       // embed anything by default, so with these declarations we'll only
                       // be able to compare it with itself and to add 'int's to it.
                       st::comparable,
@@ -162,7 +194,7 @@ using my_strong_value =
 The definition is quite simple:
 ```cpp
 template <class Type, class Tag, class... Params>
-struct strong_value : 
+struct strong_value :
       derive_t< strong_value<Type, Tag, Params...>,
                 Params...
               >
@@ -170,17 +202,17 @@ struct strong_value :
   using value_type = Type;
 
   constexpr strong_value() noexcept : value{} {}
-  
+
   constexpr explicit number(const value_type& v) noexcept : value{v} {}
 
   value_type value;
 };
 ```
-As you can see it's a very simple wrapper around a `value` member with an explicit constructor to prevent silent conversions. The magic happens in the inheritance definition `derive_t<strong_value<Type, Tag, Params...>, Params...>`: we call the `derive_t` meta function with the type that we're defining and the list of modifiers that we want to use to generate operator overloads.  
+As you can see it's a very simple wrapper around a `value` member with an explicit constructor to prevent silent conversions. The magic happens in the inheritance definition `derive_t<strong_value<Type, Tag, Params...>, Params...>`: we call the `derive_t` meta function with the type that we're defining and the list of modifiers that we want to use to generate operator overloads.
 `number` is defined in a similar fashion:
 ```cpp
 template <class Type, class Tag, class... Params>
-struct number : 
+struct number :
             derive_t< number<Type, Tag, Params...>,
                       arithmetic,
                       comparable,
@@ -205,7 +237,7 @@ The only difference with `strong_value` is that we give it a set of modifiers to
 template <class T, class... Ts>
 struct derive_t : Ts::template type<T>... {};
 ```
-As you may have gathered this library is basically just `derive_t` and a bunch of predefined modifiers defining functions and operator overloads (plus some TMP utilities that we'll detail later). With this in our toolbelt, we already have a lot of possibilities. If you tried to play with the first example, you may have noticed that there is no good way to encode `acceleration * mass = force`, since C++ doesn't allow us to predeclare `using` declarations. `force` and `mass` do not exist at the point where `acceleration` is defined so we couldn't use the modifier `commutative_under<multiplies, mass, construct_t<force>>` to implement the appropriate `operator*` overloads.  
+As you may have gathered this library is basically just `derive_t` and a bunch of predefined modifiers defining functions and operator overloads (plus some TMP utilities that we'll detail later). With this in our toolbelt, we already have a lot of possibilities. If you tried to play with the first example, you may have noticed that there is no good way to encode `acceleration * mass = force`, since C++ doesn't allow us to predeclare `using` declarations. `force` and `mass` do not exist at the point where `acceleration` is defined so we couldn't use the modifier `commutative_under<multiplies, mass, construct_t<force>>` to implement the appropriate `operator*` overloads.
 Using our new knowledge of `derive_t`, we can now implement the complete relationship:
 ```cpp
 namespace st = dpsg::strong_types;
