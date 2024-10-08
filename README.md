@@ -38,6 +38,15 @@ target_link_libraries(<your target> PRIVATE strong_types::strong_types)
 
 The library is header only, simply copy the files in the include directory somewhere where your compiler can find it and you're good to go.
 
+### Building the tests and examples
+
+To build the tests, keep BUILD_TESTING to ON when configuring CMake.
+
+To build the examples, use the target *examples*:
+``` bash
+cmake --build build --target examples
+```
+
 ## Example
 
 This example is a bit long but showcases basically all the functionalities of the library, take the time to read it through.
@@ -242,6 +251,8 @@ The only difference with `strong_value` is that we give it a set of modifiers to
 template <class T, class... Ts>
 struct derive_t : Ts::template type<T>... {};
 ```
+
+## Custom types
 As you may have gathered this library is basically just `derive_t` and a bunch of predefined modifiers defining functions and operator overloads (plus some TMP utilities that we'll detail later). With this in our toolbelt, we already have a lot of possibilities. If you tried to play with the first example, you may have noticed that there is no good way to encode `acceleration * mass = force`, since C++ doesn't allow us to predeclare `using` declarations. `force` and `mass` do not exist at the point where `acceleration` is defined so we couldn't use the modifier `commutative_under<multiplies, mass, construct_t<force>>` to implement the appropriate `operator*` overloads.
 Using our new knowledge of `derive_t`, we can now implement the complete relationship:
 ```cpp
@@ -286,6 +297,13 @@ struct force
 
 ```
 
+## Flags
+
+On top of `strong_value` and `number`, the library provides a utility class `flag` to manipulate enums like bitwise flags.
+```cpp
+
+```
+
 # Extensions
 
 Some extensions are provided for common interactions with the standard library. These are in their own header not to drag the whole standard library with the core strong type definitions.
@@ -299,6 +317,8 @@ The `streamable` modifier allows you to stream your strong types to and from `st
 namespace st = dpsg::strong_types;
 
 using streamable_number = st::number<int, struct streamable_tag, st::streamable>;
+// Also dpsg::strong_types::wstreamable for wide streams,
+// and dpsg::strong_types::basic_streamable<Char, CharTraits> for custom streams
 
 int main() {
   streamable_number n{42};

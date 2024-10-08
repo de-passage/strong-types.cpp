@@ -120,4 +120,11 @@ TEST(Enum, Basic) {
       (test_flag{} | e::a | e::b) ==
           static_cast<e>(static_cast<int>(e::a) | static_cast<int>(e::b)),
       "");
+
+  test_flag f{e::a};
+
+  static_assert(std::is_same<test_flag, decltype(f |= e::b)>::value, "");
+  auto expected_result = static_cast<e>(static_cast<int>(e::a) | static_cast<int>(e::b));
+  ASSERT_EQ((f |= e::b), expected_result);
+  ASSERT_EQ(f, expected_result);
 }
