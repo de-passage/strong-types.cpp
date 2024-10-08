@@ -116,16 +116,24 @@ struct deduce_return_type_impl<R, D, R> {
   using type = R;
 };
 
-struct whatever;
-template <template<class ...> class T, class D, class R, class ...Ts>
-struct deduce_return_type_impl<T<Ts...>, D, R, std::enable_if_t<!std::is_same<T<Ts...>, R>::value>> {
+template <template <class...> class T, class D, class R, class... Ts>
+struct deduce_return_type_impl<
+    T<Ts...>,
+    D,
+    R,
+    std::enable_if_t<!std::is_same<T<Ts...>, R>::value>> {
   using type = T<typename deduce_return_type_impl<Ts, R, R>::type...>;
 };
 
 }  // namespace detail
 
+/** \brief Deduce the return type of the implemented operators based on the
+ * given arguments.
+ *
+ */
 template <class T, class D, class R>
-using deduce_return_type = typename detail::deduce_return_type_impl<T, D, R>::type;
+using deduce_return_type =
+    typename detail::deduce_return_type_impl<T, D, R>::type;
 }  // namespace black_magic
 
 // clang-tidy off
@@ -166,6 +174,9 @@ using deduce_return_type = typename detail::deduce_return_type_impl<T, D, R>::ty
 DPSG_APPLY_TO_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
 DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(DPSG_DEFINE_BINARY_OPERATOR)
 DPSG_APPLY_TO_UNARY_OPERATORS(DPSG_DEFINE_UNARY_OPERATOR)
+
+#undef DPSG_DEFINE_UNARY_OPERATOR
+#undef DPSG_DEFINE_BINARY_OPERATOR
 // clang-tidy on
 
 struct post_increment {
@@ -285,6 +296,10 @@ DPSG_APPLY_TO_SELF_ASSIGNING_BINARY_OPERATORS(
     DPSG_DEFINE_FRIEND_SELF_ASSIGN_BINARY_OPERATOR_IMPLEMENTATION)
 DPSG_APPLY_TO_UNARY_OPERATORS(DPSG_DEFINE_FRIEND_UNARY_OPERATOR_IMPLEMENTATION)
 
+#undef DPSG_DEFINE_FRIEND_UNARY_OPERATOR_IMPLEMENTATION
+#undef DPSG_DEFINE_FRIEND_SELF_ASSIGN_BINARY_OPERATOR_IMPLEMENTATION
+#undef DPSG_DEFINE_FRIEND_BINARY_OPERATOR_IMPLEMENTATION
+
 }  // namespace detail
 
 template <class Op,
@@ -293,36 +308,31 @@ template <class Op,
           class Result = passthrough_t,
           class TransformLeft = get_value_t,
           class TransformRight = get_value_t>
-using implement_binary_operation = detail::implement_binary_operation<
-    Op,
-    Left,
-    Right,
-    Result,
-    TransformLeft,
-    TransformRight>;
+using implement_binary_operation =
+    detail::implement_binary_operation<Op,
+                                       Left,
+                                       Right,
+                                       Result,
+                                       TransformLeft,
+                                       TransformRight>;
 
 template <class Op,
           class Arg,
           class Result = passthrough_t,
           class Transform = get_value_t>
-using implement_unary_operation = detail::implement_unary_operation<
-    Op,
-    Arg,
-    Result,
-    Transform>;
+using implement_unary_operation =
+    detail::implement_unary_operation<Op, Arg, Result, Transform>;
 
 template <class Operation,
           class Arg,
           class Result = construct_t<Arg>,
           class Transform = get_value_t>
-struct implement_symmetric_operation
-    : implement_binary_operation<
-          Operation,
-          Arg,
-          Arg,
-          Result,
-          Transform,
-          Transform> {};
+struct implement_symmetric_operation : implement_binary_operation<Operation,
+                                                                  Arg,
+                                                                  Arg,
+                                                                  Result,
+                                                                  Transform,
+                                                                  Transform> {};
 
 template <class Operation,
           class Left,
@@ -463,14 +473,15 @@ template <class Arg2,
           class T2 = get_value_t>
 struct arithmetically_compatible_with {
   template <class Arg1>
-  struct type : black_magic::for_each<
-                    binary_arithmetic_operators,
-                    make_commutative_operator<
-                        Arg1,
-                        Arg2,
-                        black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
-                        T1,
-                        T2>> {};
+  struct type
+      : black_magic::for_each<
+            binary_arithmetic_operators,
+            make_commutative_operator<
+                Arg1,
+                Arg2,
+                black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
+                T1,
+                T2>> {};
 };
 
 template <class Op,
@@ -505,6 +516,61 @@ struct compatible_under {
       T2>;
 };
 
+template <class Enum, class UnderlyingType = std::underlying_type_t<Enum>>
+struct bitwise_enum {
+  template <class Type>
+  struct type
+      : black_magic::for_each<
+            binary_bitwise_operators,
+            make_symmetric_operator<Type,
+                                    cast_to_then_construct_t<Enum, Type>,
+                                    get_value_then_cast_t<UnderlyingType>>>,
+        black_magic::for_each<
+            unary_bitwise_operators,
+            make_unary_operator<Type,
+                                cast_to_then_construct_t<Enum, Type>,
+                                get_value_then_cast_t<UnderlyingType>>> {};
+};
+
+struct bitwise {
+  template <class Type>
+  struct type : black_magic::for_each<binary_bitwise_operators,
+                                      make_symmetric_operator<Type>>,
+                black_magic::for_each<unary_bitwise_operators,
+                                      make_unary_operator<Type>> {};
+};
+
+template <class Arg2,
+          class R = black_magic::deduce,
+          class T1 = get_value_t,
+          class T2 = get_value_t>
+struct bitwise_compatible_with {
+  template <class Arg1>
+  struct type
+      : black_magic::for_each<
+            binary_bitwise_operators,
+            make_commutative_operator<
+                Arg1,
+                Arg2,
+                black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
+                T1,
+                T2>> {};
+};
+
+template <class Enum, class UnderlyingType = std::underlying_type_t<Enum>>
+struct bitwise_compatible_with_enum {
+  template <class Type>
+  struct type
+      : black_magic::for_each<
+            binary_bitwise_operators,
+            make_commutative_operator<Type,
+                                      Enum,
+                                      cast_to_then_construct_t<Enum, Type>,
+                                      get_value_then_cast_t<UnderlyingType>,
+                                      get_value_then_cast_t<UnderlyingType>>> {
+  };
+};
+
 template <class T, class... Ts>
 struct derive_t : Ts::template type<T>... {};
 
@@ -524,12 +590,15 @@ struct strong_value : derive_t<strong_value<Type, Tag, Params...>, Params...> {
 };
 
 template <class Type, class Tag, class... Params>
-struct number : derive_t<number<Type, Tag, Params...>,
-                         arithmetic,
-                         comparable,
-                         arithmetically_compatible_with<Type, cast_to_then_construct_t<Type, black_magic::deduce>>,
-                         comparable_with<Type>,
-                         Params...> {
+struct number
+    : derive_t<number<Type, Tag, Params...>,
+               arithmetic,
+               comparable,
+               arithmetically_compatible_with<
+                   Type,
+                   cast_to_then_construct_t<Type, black_magic::deduce>>,
+               comparable_with<Type>,
+               Params...> {
   using value_type = Type;
 
   static_assert(std::is_arithmetic<value_type>::value,
@@ -544,6 +613,30 @@ struct number : derive_t<number<Type, Tag, Params...>,
   constexpr explicit number(U&& u) noexcept : value{std::forward<U>(u)} {}
 
   value_type value;
+};
+
+template <class Type, class Tag, class... Args>
+struct flag : derive_t<flag<Type, Tag, Args...>,
+                       comparable,
+                       comparable_with<Type>,
+                       bitwise_enum<Type>,
+                       bitwise_compatible_with_enum<Type>,
+                       Args...> {
+ public:
+  static_assert(std::is_enum<Type>::value,
+                "Underlying type for flag must be an enum");
+  using underlying_type = std::underlying_type_t<Type>;
+  using value_type = Type;
+
+  value_type value{static_cast<Type>(0)};
+
+  template <
+      class U,
+      std::enable_if_t<std::is_convertible<std::decay_t<U>, value_type>::value,
+                       int> = 0>
+  constexpr explicit flag(U t) noexcept : value{t} {}
+
+  constexpr flag() noexcept = default;
 };
 
 }  // namespace strong_types
