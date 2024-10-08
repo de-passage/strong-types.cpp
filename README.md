@@ -297,13 +297,6 @@ struct force
 
 ```
 
-## Flags
-
-On top of `strong_value` and `number`, the library provides a utility class `flag` to manipulate enums like bitwise flags.
-```cpp
-
-```
-
 # Extensions
 
 Some extensions are provided for common interactions with the standard library. These are in their own header not to drag the whole standard library with the core strong type definitions.
@@ -348,4 +341,27 @@ int main() {
   std::unordered_map<hashable_number, int> m;
   m[n] = 42;
 }
+```
+
+## Flags
+
+The utility class `flag` is there to ease manipulating enums like bitwise flags. See `example/flags.cpp` for a complete example exposing the enum values through the custom type.
+```cpp
+#include <strong_types/flags.hpp>
+
+namespace st = dpsg::strong_types;
+
+enum class flag_values { z = 0, a = 1, b = 2, c = 4, d = 8, e = 16, f = 32 };
+
+using flag = st::flag<flag_values, struct flag_tag>;
+
+int main() {
+    flag zero{};
+    flag a{flag_values::a};
+
+    flag other = a | flag_values::b | flag_values::c;
+    other &= ~flag_values::b;
+    other ^= flag_values::c;
+}
+
 ```

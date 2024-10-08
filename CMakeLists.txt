@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14.0)
-project(strong-types VERSION 1.1.0)
+project(strong-types VERSION 1.2.0)
 
 include(CTest)
 
@@ -64,6 +64,7 @@ set(EXPORT_INCLUDE_FILES
     strong_types.hpp
     strong_types/iostream.hpp
     strong_types/hash.hpp
+    strong_types/flags.hpp
 )
 list(TRANSFORM EXPORT_INCLUDE_FILES PREPEND "${LIBRARY_INCLUDE_DIRECTORY}/")
 target_sources(strong-types INTERFACE FILE_SET
@@ -84,6 +85,7 @@ if (BUILD_TESTING)
       basic.cpp
       iostream.cpp
       hash.cpp
+      flags.cpp
   )
   list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
 

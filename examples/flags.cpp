@@ -2,6 +2,7 @@
 #include <strong_types.hpp>
 #include <span>
 #include "strong_types/iostream.hpp"
+#include "strong_types/flags.hpp"
 
 namespace st = dpsg::strong_types;
 
@@ -43,6 +44,7 @@ int main(int argc, const char** argv) {
       f |= flag::f;
     } else if (arg == "!a") {
       std::cerr << "removing a\n";
+      // Unfortunately we need to cast the flag_value to the wrapper type
       f &= ~flag{flag::a};
     } else if (arg == "!b") {
       std::cerr << "removing b\n";

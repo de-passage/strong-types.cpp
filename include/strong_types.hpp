@@ -19,13 +19,23 @@ struct has_value : std::false_type {};
 template <class T>
 struct has_value<T, void_t<decltype(std::declval<T>().value)>>
     : std::true_type {};
+
+template <class Self>
+struct implement_ignored_values {
+  template <class T, class... Args>
+  inline constexpr decltype(auto) operator()(T&& t, Args&&... /* ignored */)
+      const noexcept {
+    return static_cast<const Self*>(this)->operator()(std::forward<T>(t));
+  }
+};
 }  // namespace detail
 template <class T>
 using has_value = detail::has_value<T>;
 template <class T>
 constexpr bool has_value_v = has_value<T>::value;
 
-struct get_value_t {
+struct get_value_t : detail::implement_ignored_values<get_value_t> {
+  using detail::implement_ignored_values<get_value_t>::operator();
   template <class T, std::enable_if_t<has_value_v<T>, int> = 0>
   inline constexpr decltype(auto) operator()(T&& t) noexcept {
     return std::forward<T>(t).value;
@@ -45,7 +55,9 @@ struct get_value_t {
 };
 
 template <class To>
-struct get_value_then_cast_t {
+struct get_value_then_cast_t
+    : detail::implement_ignored_values<get_value_then_cast_t<To>> {
+  using detail::implement_ignored_values<get_value_then_cast_t>::operator();
   template <class T>
   inline constexpr To operator()(T&& t) noexcept {
     return static_cast<To>(get_value_t{}(std::forward<T>(t)));
@@ -54,24 +66,26 @@ struct get_value_then_cast_t {
 
 template <class To, class Cl>
 struct cast_to_then_construct_t {
-  template <class T>
-  inline constexpr Cl operator()(T&& t) noexcept {
+  template <class T, class... Ignored>
+  inline constexpr Cl operator()(T&& t, Ignored&&... /* ignored */) noexcept {
     return Cl{static_cast<To>(std::forward<T>(t))};
   }
 };
 
-struct passthrough_t {
+struct passthrough_t : detail::implement_ignored_values<passthrough_t> {
+  using detail::implement_ignored_values<passthrough_t>::operator();
   template <class T>
   inline constexpr decltype(auto) operator()(T&& t) const noexcept {
     return std::forward<T>(t);
   }
 };
 
-template <class T>
-struct construct_t {
-  template <class... Ts>
-  inline constexpr T operator()(Ts&&... ts) const noexcept {
-    return T{std::forward<Ts>(ts)...};
+template <class Cl>
+struct construct_t : detail::implement_ignored_values<construct_t<Cl>> {
+  using detail::implement_ignored_values<construct_t>::operator();
+  template <class T>
+  inline constexpr Cl operator()(T&& ts) const noexcept {
+    return Cl{std::forward<T>(ts)};
   }
 };
 
@@ -208,33 +222,37 @@ template <class Op,
           class Transform = get_value_t>
 struct implement_unary_operation;
 
-#define DPSG_DEFINE_FRIEND_BINARY_OPERATOR_IMPLEMENTATION(op, sym)           \
-  template <class Left,                                                      \
-            class Right,                                                     \
-            class Result,                                                    \
-            class TransformLeft,                                             \
-            class TransformRight>                                            \
-  struct implement_binary_operation<op,                                      \
-                                    Left,                                    \
-                                    Right,                                   \
-                                    Result,                                  \
-                                    TransformLeft,                           \
-                                    TransformRight> {                        \
-    friend constexpr decltype(auto) operator sym(const Left& left,           \
-                                                 const Right& right) {       \
-      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
-    }                                                                        \
-    friend constexpr decltype(auto) operator sym(Left& left,                 \
-                                                 const Right& right) {       \
-      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
-    }                                                                        \
-    friend constexpr decltype(auto) operator sym(const Left& left,           \
-                                                 Right& right) {             \
-      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
-    }                                                                        \
-    friend constexpr decltype(auto) operator sym(Left& left, Right& right) { \
-      return Result{}(op{}(TransformLeft{}(left), TransformRight{}(right))); \
-    }                                                                        \
+#define DPSG_DEFINE_FRIEND_BINARY_OPERATOR_IMPLEMENTATION(op, sym)            \
+  template <class Left,                                                       \
+            class Right,                                                      \
+            class Result,                                                     \
+            class TransformLeft,                                              \
+            class TransformRight>                                             \
+  struct implement_binary_operation<op,                                       \
+                                    Left,                                     \
+                                    Right,                                    \
+                                    Result,                                   \
+                                    TransformLeft,                            \
+                                    TransformRight> {                         \
+    friend constexpr decltype(auto) operator sym(const Left& left,            \
+                                                 const Right& right) {        \
+      return Result{}(                                                        \
+          op{}(TransformLeft{}(left), TransformRight{}(right)), left, right); \
+    }                                                                         \
+    friend constexpr decltype(auto) operator sym(Left& left,                  \
+                                                 const Right& right) {        \
+      return Result{}(                                                        \
+          op{}(TransformLeft{}(left), TransformRight{}(right)), left, right); \
+    }                                                                         \
+    friend constexpr decltype(auto) operator sym(const Left& left,            \
+                                                 Right& right) {              \
+      return Result{}(                                                        \
+          op{}(TransformLeft{}(left), TransformRight{}(right)), left, right); \
+    }                                                                         \
+    friend constexpr decltype(auto) operator sym(Left& left, Right& right) {  \
+      return Result{}(                                                        \
+          op{}(TransformLeft{}(left), TransformRight{}(right)), left, right); \
+    }                                                                         \
   };
 
 #define DPSG_DEFINE_FRIEND_SELF_ASSIGN_BINARY_OPERATOR_IMPLEMENTATION(op, sym) \
@@ -254,8 +272,8 @@ struct implement_unary_operation;
         std::enable_if_t<std::is_same<std::decay_t<T>, Left>::value, int> = 0> \
     friend constexpr decltype(auto) operator sym(T& left,                      \
                                                  const Right& right) {         \
-      op{}(TransformLeft{}(left), TransformRight{}(right));                    \
-      return left;                                                             \
+      return Result{}(                                                         \
+          op{}(TransformLeft{}(left), TransformRight{}(right)), left, right);  \
     }                                                                          \
   };
 
@@ -367,6 +385,9 @@ using unary_bitwise_operators = black_magic::tuple<binary_not>;
 using binary_bitwise_operators = black_magic::tuple<binary_and,
                                                     binary_or,
                                                     binary_xor,
+                                                    binary_and_assign,
+                                                    binary_or_assign,
+                                                    binary_xor_assign,
                                                     shift_left,
                                                     shift_right,
                                                     shift_left_assign,
@@ -516,22 +537,6 @@ struct compatible_under {
       T2>;
 };
 
-template <class Enum, class UnderlyingType = std::underlying_type_t<Enum>>
-struct bitwise_enum {
-  template <class Type>
-  struct type
-      : black_magic::for_each<
-            binary_bitwise_operators,
-            make_symmetric_operator<Type,
-                                    cast_to_then_construct_t<Enum, Type>,
-                                    get_value_then_cast_t<UnderlyingType>>>,
-        black_magic::for_each<
-            unary_bitwise_operators,
-            make_unary_operator<Type,
-                                cast_to_then_construct_t<Enum, Type>,
-                                get_value_then_cast_t<UnderlyingType>>> {};
-};
-
 struct bitwise {
   template <class Type>
   struct type : black_magic::for_each<binary_bitwise_operators,
@@ -555,20 +560,6 @@ struct bitwise_compatible_with {
                 black_magic::deduce_return_type<R, construct_t<Arg1>, Arg1>,
                 T1,
                 T2>> {};
-};
-
-template <class Enum, class UnderlyingType = std::underlying_type_t<Enum>>
-struct bitwise_compatible_with_enum {
-  template <class Type>
-  struct type
-      : black_magic::for_each<
-            binary_bitwise_operators,
-            make_commutative_operator<Type,
-                                      Enum,
-                                      cast_to_then_construct_t<Enum, Type>,
-                                      get_value_then_cast_t<UnderlyingType>,
-                                      get_value_then_cast_t<UnderlyingType>>> {
-  };
 };
 
 template <class T, class... Ts>
@@ -613,30 +604,6 @@ struct number
   constexpr explicit number(U&& u) noexcept : value{std::forward<U>(u)} {}
 
   value_type value;
-};
-
-template <class Type, class Tag, class... Args>
-struct flag : derive_t<flag<Type, Tag, Args...>,
-                       comparable,
-                       comparable_with<Type>,
-                       bitwise_enum<Type>,
-                       bitwise_compatible_with_enum<Type>,
-                       Args...> {
- public:
-  static_assert(std::is_enum<Type>::value,
-                "Underlying type for flag must be an enum");
-  using underlying_type = std::underlying_type_t<Type>;
-  using value_type = Type;
-
-  value_type value{static_cast<Type>(0)};
-
-  template <
-      class U,
-      std::enable_if_t<std::is_convertible<std::decay_t<U>, value_type>::value,
-                       int> = 0>
-  constexpr explicit flag(U t) noexcept : value{t} {}
-
-  constexpr flag() noexcept = default;
 };
 
 }  // namespace strong_types
