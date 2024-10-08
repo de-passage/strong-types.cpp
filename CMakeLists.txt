@@ -60,7 +60,11 @@ target_include_directories(strong-types INTERFACE
   $<INSTALL_INTERFACE:include>
 )
 
-set(EXPORT_INCLUDE_FILES strong_types.hpp strong_types/iostream.hpp)
+set(EXPORT_INCLUDE_FILES
+    strong_types.hpp
+    strong_types/iostream.hpp
+    strong_types/hash.hpp
+)
 list(TRANSFORM EXPORT_INCLUDE_FILES PREPEND "${LIBRARY_INCLUDE_DIRECTORY}/")
 target_sources(strong-types INTERFACE FILE_SET
   HEADERS FILES ${EXPORT_INCLUDE_FILES}
@@ -76,7 +80,11 @@ endif(MSVC)
 endfunction()
 
 if (BUILD_TESTING)
-  set (TEST_SRC_FILES basic.cpp iostream.cpp)
+  set (TEST_SRC_FILES
+      basic.cpp
+      iostream.cpp
+      hash.cpp
+  )
   list (TRANSFORM TEST_SRC_FILES PREPEND ${TEST_SRC_DIRECTORY})
 
   add_executable(tests ${TEST_SRC_FILES})
@@ -84,6 +92,11 @@ if (BUILD_TESTING)
   set_target_options(tests)
   add_test(NAME gtests COMMAND tests)
 
+  add_executable(tests-cpp20 ${TEST_SRC_FILES})
+  set_target_properties(tests-cpp20 PROPERTIES CXX_STANDARD 20)
+  target_link_libraries(tests-cpp20 gtest_main strong-types)
+  set_target_options(tests-cpp20)
+  add_test(NAME gtests-cpp20 COMMAND tests-cpp20)
 endif()
 add_subdirectory(${EXAMPLE_DIRECTORY})
 

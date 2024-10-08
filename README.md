@@ -1,5 +1,4 @@
 This is the result of my life-long (OK, maybe just-a-couple-years-long) quest for the ultimate strong type engine for C++. Other solutions do exist but I haven't found anything that satisfies the level of granularity that I want for my strong type declarations.
-Compiled and tested with clang 11.0 and g++ 8.3.1 with flag -std=c++14; and VC 2019 with /std:c++14.
 
 # Getting Started
 
@@ -50,6 +49,7 @@ This example is a bit long but showcases basically all the functionalities of th
 namespace st = dpsg::strong_types;
 
 // Allows streaming to/from std::basic_[io]stream
+// There is a predefined version of this in the strong_types/iostream.hpp file
 namespace custom_modifier {
 namespace meta = st::black_magic;
 struct streamable {
@@ -72,10 +72,15 @@ using force =
     st::number<unsigned int,
                struct force_tag,
                // compatible under division with mass to produce acceleration
-               st::compatible_under<st::divides,
+               st::compatible_under</* operation */
+                                    st::divides,
+                                    /* operand   */
                                     mass,
+                                    /* how to build the result type */
                                     st::construct_t<acceleration>,
+                                    /* how to unpack "force" */
                                     st::get_value_then_cast_t<double>,
+                                    /* how to unpack "mass" */
                                     st::get_value_then_cast_t<double>>,
                custom_modifier::streamable>;
 using speed = st::number<double, struct speed_tag, custom_modifier::streamable>;
@@ -175,7 +180,7 @@ Some day, we might get a nice standard solution to do that, but for now we have 
 
 # Usage
 
-At its core this library is simply a way to quickly define an operator overload, with a few convenience classes to help you get started. Let's take a look at the `dspg::strong_types::strong_value` struct. Its usage is very similar to what we saw in the previous example.
+At its core this library is simply a way to quickly define an operator overload, with a few convenience classes to help you get started. Let's take a look at the `dspg::strong_types::strong_value` struct. Its usage is very similar to `dpsg::strong_types::number` that we saw in the previous example.
 
 ```cpp
 using my_strong_value =
@@ -191,7 +196,7 @@ using my_strong_value =
                       st::commutative_under<st::plus, int>
                       >
 ```
-The definition is quite simple:
+The definition is quite simple (edited for clarity):
 ```cpp
 template <class Type, class Tag, class... Params>
 struct strong_value :
@@ -261,6 +266,9 @@ struct acceleration
                     st::commutative_under<st::multiplies,
                                           mass,
                                           st::construct_t<struct force>>> {
+                                          // We do not need to cast to double anymore,
+                                          // the default behavior is to get the "value" member,
+                                          // so we don't need to add anything
   constexpr acceleration() noexcept = default;
   constexpr explicit acceleration(double a) noexcept : value{a} {}
   double value{};
@@ -276,4 +284,48 @@ struct force
   double value{};
 };
 
+```
+
+# Extensions
+
+Some extensions are provided for common interactions with the standard library. These are in their own header not to drag the whole standard library with the core strong type definitions.
+
+## Streamable
+
+The `streamable` modifier allows you to stream your strong types to and from `std::basic_[io]stream`.
+```cpp
+#include <strong_types/iostream.hpp>
+
+namespace st = dpsg::strong_types;
+
+using streamable_number = st::number<int, struct streamable_tag, st::streamable>;
+
+int main() {
+  streamable_number n{42};
+  std::cout << n << std::endl;
+  std::cin >> n;
+  std::cout << n << std::endl;
+}
+```
+
+## Hashable
+
+The `hashable` modifier allows you to use your strong types as keys in `std::unordered_map` and `std::unordered_set` (remember that these classes also require your type to be comparable).
+
+Due to technical limitations in C++14, you need to call a macro to make your type hashable. From C++20 onwards, this is not necessary anymore. The macro expands to nothing in this case, and can be kept for backward compatibility.
+```cpp
+#include <strong_types/hash.hpp>
+
+namespace st = dpsg::strong_types;
+
+using hashable_number = st::number<int, struct hashable_tag, st::hashable, st::comparable>;
+
+// Only required pre-C++20
+DPSG_STRONG_TYPES_MAKE_HASHABLE(hashable_number);
+
+int main() {
+  hashable_number n{42};
+  std::unordered_map<hashable_number, int> m;
+  m[n] = 42;
+}
 ```
